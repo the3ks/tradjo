@@ -1,0 +1,504 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum CollectionType {
+  FOLDER
+  TRADING
+}
+
+enum ExchangeName {
+  BINGX
+}
+
+enum MarketType {
+  PERPETUAL
+  SPOT
+  FUTURES
+}
+
+enum SymbolFilterMode {
+  ALL
+  INCLUDE
+  EXCLUDE
+}
+
+enum InitialSyncMode {
+  YESTERDAY
+  LAST_7_DAYS
+  CUSTOM_RANGE
+  OPEN_ONLY
+}
+
+enum CursorInitializedFrom {
+  IMPORT_RANGE
+  OPEN_ORDERS
+  LATEST_CLOSED_ORDER
+  NOW
+}
+
+enum RawOrderStatus {
+  NEW
+  PARTIALLY_FILLED
+  FILLED
+  CANCELED
+  REJECTED
+  EXPIRED
+  UNKNOWN
+}
+
+enum SyncType {
+  INITIAL
+  INCREMENTAL
+  RECENT_REFRESH
+  FORCE_RESYNC
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+  SETTLED
+  ARCHIVED
+}
+
+model User {
+  id                String               @id @default(cuid())
+  name              String?
+  email             String?              @unique
+  emailVerified     DateTime?
+  image             String?
+  passwordHash      String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  accounts          Account[]
+  sessions          Session[]
+  profile           UserProfile?
+  collections       Collection[]
+  exchangeConnections ExchangeConnection[]
+  syncSources       CollectionSyncSource[]
+  rawOrders         RawOrder[]
+  rawFills          RawFill[]
+  rawPositions      RawPosition[]
+  rawIncomes        RawIncome[]
+  trades            Trade[]
+  tradeJournals     TradeJournal[]
+  mistakeTags       TradeMistakeTag[]
+  tradeScreenshots  TradeScreenshot[]
+  suggestionValues  UserSuggestionValue[]
+  syncLogs          ExchangeSyncLog[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model UserProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  timezone     String   @default("UTC")
+  baseCurrency String   @default("USD")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ExchangeConnection {
+  id              String       @id @default(cuid())
+  userId          String
+  exchangeName    ExchangeName
+  accountName     String
+  apiKeyEncrypted String
+  apiSecretEncrypted String
+  isActive        Boolean      @default(true)
+  deletedAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncSources CollectionSyncSource[]
+  rawOrders   RawOrder[]
+  rawFills    RawFill[]
+  rawPositions RawPosition[]
+  rawIncomes  RawIncome[]
+  trades      Trade[]
+  syncLogs    ExchangeSyncLog[]
+
+  @@index([userId])
+}
+
+model Collection {
+  id          String         @id @default(cuid())
+  userId      String
+  parentId    String?
+  name        String
+  type        CollectionType
+  description String?
+  sortOrder   Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent      Collection?            @relation("CollectionTree", fields: [parentId], references: [id])
+  children    Collection[]           @relation("CollectionTree")
+  syncSources CollectionSyncSource[]
+  trades      Trade[]
+
+  @@index([userId])
+  @@index([parentId])
+}
+
+model CollectionSyncSource {
+  id                     String                 @id @default(cuid())
+  userId                 String
+  collectionId           String
+  exchangeConnectionId   String
+  marketType             MarketType
+  symbolFilterMode       SymbolFilterMode       @default(ALL)
+  initialSyncMode        InitialSyncMode        @default(LAST_7_DAYS)
+  initialSyncStartTime   DateTime?
+  initialSyncEndTime     DateTime?
+  initialSyncCompleted   Boolean                @default(false)
+  lastEventTime          DateTime?
+  lastOrderCursor        String?
+  lastTradeCursor        String?
+  cursorInitializedFrom  CursorInitializedFrom?
+  isActive               Boolean                @default(true)
+  isDefault              Boolean                @default(true)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection           Collection             @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  exchangeConnection   ExchangeConnection     @relation(fields: [exchangeConnectionId], references: [id])
+  symbols              CollectionSyncSourceSymbol[]
+  trades               Trade[]
+  syncLogs             ExchangeSyncLog[]
+
+  @@index([userId])
+  @@index([collectionId])
+  @@index([exchangeConnectionId])
+}
+
+model CollectionSyncSourceSymbol {
+  id                     String           @id @default(cuid())
+  collectionSyncSourceId String
+  symbol                 String
+  mode                   SymbolFilterMode
+  createdAt              DateTime         @default(now())
+
+  syncSource CollectionSyncSource @relation(fields: [collectionSyncSourceId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionSyncSourceId, symbol, mode])
+}
+
+model RawOrder {
+  id                   String         @id @default(cuid())
+  userId               String
+  exchangeConnectionId String
+  exchangeOrderId      String
+  symbol               String
+  marketType           MarketType
+  side                 String?
+  orderType            String?
+  price                Decimal?       @db.Decimal(36, 18)
+  quantity             Decimal?       @db.Decimal(36, 18)
+  filledQuantity       Decimal?       @db.Decimal(36, 18)
+  status               RawOrderStatus @default(UNKNOWN)
+  createdTime          DateTime?
+  updatedTime          DateTime?
+  rawPayload           Json
+  isTerminal           Boolean        @default(false)
+  lastSeenAt           DateTime       @default(now())
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exchangeConnection ExchangeConnection @relation(fields: [exchangeConnectionId], references: [id])
+
+  @@unique([exchangeConnectionId, exchangeOrderId])
+  @@index([userId])
+  @@index([symbol])
+}
+
+model RawFill {
+  id                   String   @id @default(cuid())
+  userId               String
+  exchangeConnectionId String
+  exchangeFillId       String
+  exchangeOrderId      String?
+  symbol               String
+  marketType           MarketType
+  side                 String?
+  price                Decimal? @db.Decimal(36, 18)
+  quantity             Decimal? @db.Decimal(36, 18)
+  fee                  Decimal? @db.Decimal(36, 18)
+  feeCurrency          String?
+  executedAt           DateTime?
+  rawPayload           Json
+  lastSeenAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exchangeConnection ExchangeConnection @relation(fields: [exchangeConnectionId], references: [id])
+
+  @@unique([exchangeConnectionId, exchangeFillId])
+  @@index([userId])
+  @@index([symbol])
+}
+
+model RawPosition {
+  id                   String   @id @default(cuid())
+  userId               String
+  exchangeConnectionId String
+  exchangePositionId   String
+  symbol               String
+  marketType           MarketType
+  side                 String?
+  quantity             Decimal? @db.Decimal(36, 18)
+  entryPrice           Decimal? @db.Decimal(36, 18)
+  markPrice            Decimal? @db.Decimal(36, 18)
+  unrealizedPnl        Decimal? @db.Decimal(36, 18)
+  realizedPnl          Decimal? @db.Decimal(36, 18)
+  openedAt             DateTime?
+  updatedTime          DateTime?
+  rawPayload           Json
+  lastSeenAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exchangeConnection ExchangeConnection @relation(fields: [exchangeConnectionId], references: [id])
+
+  @@unique([exchangeConnectionId, exchangePositionId])
+  @@index([userId])
+  @@index([symbol])
+}
+
+model RawIncome {
+  id                   String     @id @default(cuid())
+  userId               String
+  exchangeConnectionId String
+  exchangeIncomeId     String
+  symbol               String?
+  marketType           MarketType
+  incomeType           String
+  amount               Decimal?   @db.Decimal(36, 18)
+  asset                String?
+  occurredAt           DateTime?
+  rawPayload           Json
+  lastSeenAt           DateTime   @default(now())
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exchangeConnection ExchangeConnection @relation(fields: [exchangeConnectionId], references: [id])
+
+  @@unique([exchangeConnectionId, exchangeIncomeId])
+  @@index([userId])
+  @@index([symbol])
+  @@index([incomeType])
+}
+
+model Trade {
+  id                     String       @id @default(cuid())
+  userId                 String
+  collectionId           String
+  collectionSyncSourceId String?
+  exchangeConnectionId   String
+  externalTradeId        String
+  sourceRecordType       String
+  sourceRecordId         String
+  symbol                 String
+  marketType             MarketType
+  side                   String?
+  status                 TradeStatus  @default(OPEN)
+  quantity               Decimal?     @db.Decimal(36, 18)
+  entryPrice             Decimal?     @db.Decimal(36, 18)
+  exitPrice              Decimal?     @db.Decimal(36, 18)
+  grossPnl               Decimal?     @db.Decimal(36, 18)
+  tradingFee             Decimal?     @db.Decimal(36, 18)
+  fundingFee             Decimal?     @db.Decimal(36, 18)
+  netPnl                 Decimal?     @db.Decimal(36, 18)
+  openedAt               DateTime?
+  closedAt               DateTime?
+  settledAt              DateTime?
+  rawSummary             Json
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection         Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collectionSyncSource CollectionSyncSource? @relation(fields: [collectionSyncSourceId], references: [id], onDelete: SetNull)
+  exchangeConnection ExchangeConnection    @relation(fields: [exchangeConnectionId], references: [id])
+  journal            TradeJournal?
+  screenshots        TradeScreenshot[]
+
+  @@unique([collectionId, externalTradeId])
+  @@index([userId])
+  @@index([collectionId])
+  @@index([symbol])
+  @@index([marketType])
+  @@index([status])
+}
+
+model TradeJournal {
+  id        String   @id @default(cuid())
+  userId    String
+  tradeId   String   @unique
+  strategy  String?  @db.VarChar(120)
+  setup     String?  @db.VarChar(160)
+  notes     String?  @db.Text
+  emotion   String?  @db.VarChar(80)
+  review    String?  @db.Text
+  grade     String?  @db.VarChar(24)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trade       Trade                    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  mistakeTags TradeJournalMistakeTag[]
+
+  @@index([userId])
+  @@index([strategy])
+  @@index([setup])
+  @@index([emotion])
+  @@index([grade])
+}
+
+model TradeMistakeTag {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String   @db.VarChar(80)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journals TradeJournalMistakeTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model TradeJournalMistakeTag {
+  tradeJournalId String
+  mistakeTagId   String
+  createdAt      DateTime @default(now())
+
+  journal    TradeJournal    @relation(fields: [tradeJournalId], references: [id], onDelete: Cascade)
+  mistakeTag TradeMistakeTag @relation(fields: [mistakeTagId], references: [id], onDelete: Cascade)
+
+  @@id([tradeJournalId, mistakeTagId])
+  @@index([mistakeTagId])
+}
+
+model TradeScreenshot {
+  id           String   @id @default(cuid())
+  userId       String
+  tradeId      String
+  fileName     String   @db.VarChar(255)
+  originalName String   @db.VarChar(255)
+  mimeType     String   @db.VarChar(120)
+  sizeBytes    Int
+  storagePath  String   @db.VarChar(500)
+  caption      String?  @db.VarChar(240)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tradeId])
+}
+
+model UserSuggestionValue {
+  id         String   @id @default(cuid())
+  userId     String
+  category   String   @db.VarChar(40)
+  value      String   @db.VarChar(500)
+  frequency  Int      @default(1)
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, value])
+  @@index([userId, category, lastUsedAt])
+  @@index([userId, category, frequency])
+}
+
+model ExchangeSyncLog {
+  id                     String     @id @default(cuid())
+  userId                 String
+  collectionSyncSourceId String?
+  exchangeConnectionId   String
+  syncType               SyncType
+  status                 SyncStatus
+  startedAt              DateTime
+  finishedAt             DateTime?
+  fetchedCount           Int        @default(0)
+  createdCount           Int        @default(0)
+  updatedCount           Int        @default(0)
+  skippedCount           Int        @default(0)
+  errorMessage           String?    @db.Text
+  createdAt              DateTime   @default(now())
+
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collectionSyncSource CollectionSyncSource? @relation(fields: [collectionSyncSourceId], references: [id], onDelete: SetNull)
+  exchangeConnection ExchangeConnection    @relation(fields: [exchangeConnectionId], references: [id])
+
+  @@index([userId])
+  @@index([collectionSyncSourceId])
+  @@index([exchangeConnectionId])
+  @@index([status])
+}
