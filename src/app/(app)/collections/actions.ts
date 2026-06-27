@@ -117,6 +117,37 @@ export async function deleteCollectionAction(formData: FormData) {
   revalidatePath("/collections");
 }
 
+export async function setCollectionPinnedAction(formData: FormData) {
+  const userId = await requireUserId();
+  const collectionId = z.string().min(1).parse(formData.get("collectionId"));
+  const isPinned = z.coerce.boolean().parse(formData.get("isPinned"));
+
+  const collection = await prisma.collection.findFirst({
+    where: {
+      id: collectionId,
+      userId
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!collection) {
+    return;
+  }
+
+  await prisma.collection.update({
+    where: { id: collection.id },
+    data: {
+      isPinned,
+      pinnedAt: isPinned ? new Date() : null
+    }
+  });
+
+  revalidatePath("/collections");
+  revalidatePath("/trades");
+}
+
 export async function createSyncSourceAction(
   _state: CollectionActionState,
   formData: FormData

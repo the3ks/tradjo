@@ -297,6 +297,12 @@ Goal: let users add manual journal context to synced trades efficiently.
 - Maintain a suggestion index on journal save.
 - Add suggestion API with ranking by starts-with, contains, recency, and frequency.
 - Optimize mobile input UX with tappable chips and large controls.
+- Add convenient collection navigation:
+  - Keep `Collections` as the management page.
+  - Add an expandable folder/trading collection tree in the desktop sidebar.
+  - Add a mobile collection drawer from the app header.
+  - Allow trading collections to be pinned for a top quick-access section.
+  - Link trading collection shortcuts to the trade list filtered by collection.
 
 ### Data Model
 
@@ -310,6 +316,7 @@ Goal: let users add manual journal context to synced trades efficiently.
 - Journal editor on trade detail page.
 - Screenshot upload flow.
 - Suggestion API and reusable suggestion input components.
+- Desktop sidebar and mobile drawer collection tree shortcuts, including pinned collections, for faster trade review navigation.
 
 ### Acceptance Criteria
 
@@ -318,6 +325,7 @@ Goal: let users add manual journal context to synced trades efficiently.
 - Mistake tags support multi-select and creating new tags.
 - Long text fields offer snippets without aggressively replacing user text.
 - Journal save is comfortable on mobile, with a sticky save action.
+- Users can pin trading collections and access them from desktop and mobile quick-access areas without first opening the collection management page.
 
 ## Phase 8: Dashboard and Analytics
 

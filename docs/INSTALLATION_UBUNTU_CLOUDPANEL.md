@@ -77,16 +77,28 @@ SSH into the server as the site user:
 
 ```bash
 ssh tradingjournal@YOUR_SERVER_IP
+cd ~
+```
+
+Do not run `git clone YOUR_REPOSITORY_URL .` directly inside the CloudPanel site directory. CloudPanel may already place files there, especially `.well-known` for Let's Encrypt/ACME validation, and Git will refuse to clone into a non-empty directory.
+
+Recommended: clone into a temporary directory, move the app files into the CloudPanel web root, preserve `.well-known`, then remove the temporary directory.
+
+```bash
+git clone YOUR_REPOSITORY_URL ~/trading-journal-temp
+cd ~/trading-journal-temp
+find . -mindepth 1 -maxdepth 1 ! -name '.well-known' -exec mv -t ~/htdocs/journal.example.com/ {} +
+cd ~
+rmdir ~/trading-journal-temp
+```
+
+Then enter the app directory:
+
+```bash
 cd ~/htdocs/journal.example.com
 ```
 
-Clone the repository or upload the project files:
-
-```bash
-git clone YOUR_REPOSITORY_URL .
-```
-
-If the directory is not empty, clone elsewhere and copy the application files into this directory.
+This moves the cloned Git working copy into `htdocs`, so later deployments can use normal `git pull` from the site directory.
 
 ## 4. Configure Environment Variables
 
@@ -186,23 +198,24 @@ pm2 stop trading-journal
 
 ## 7. Restore PM2 After Reboot
 
-As the site user, get the Node.js path:
+Run PM2's startup helper as the CloudPanel site user:
 
 ```bash
-echo $PATH
+pm2 startup
 ```
 
-Edit the site user's crontab:
+PM2 will print a command that starts with `sudo env PATH=... pm2 startup ...`. Copy and run that exact command.
+
+It will look similar to this:
 
 ```bash
-crontab -e
+sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u tradingjournal --hp /home/tradingjournal
 ```
 
-Add:
+Then save the current process list:
 
-```cron
-PATH=PASTE_THE_OUTPUT_OF_ECHO_PATH_HERE
-@reboot pm2 resurrect > /dev/null 2>&1
+```bash
+pm2 save
 ```
 
 Reboot and verify:
@@ -381,6 +394,6 @@ Ensure the app runs as the CloudPanel site user that owns the project files.
 - `npm run build` completed.
 - PM2 process `trading-journal` is online.
 - `pm2 save` completed.
-- Reboot restore configured.
+- `pm2 startup` configured for reboot restore.
 - `/login` returns HTTP 200.
 - `/dashboard` redirects to `/login` when logged out.

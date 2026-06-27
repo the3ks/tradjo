@@ -57,6 +57,11 @@ The app now runs manual BingX raw sync, creates normalized journal trades for co
 ### Collections and Sync Sources
 
 - Collections page at `/collections`.
+- Desktop sidebar includes an expandable folder/trading collection tree for quick collection access.
+- Mobile header includes a collection drawer for quick folder/trading collection access.
+- Trading collections can be pinned/unpinned from `/collections`.
+- Pinned trading collections appear in a top quick-access section on both desktop sidebar and mobile collection drawer.
+- Trading collection sidebar shortcuts open `/trades` with the matching `collectionId` filter.
 - Folder and trading collection creation.
 - Folder/trading validation helpers and tests.
 - Folder collections can contain children.
@@ -155,6 +160,8 @@ Latest local runtime check:
 - The stale manual `3000` dev server was stopped after returning HTTP 500.
 - `npm run stop-port -- 3300` and `npm run stop-dev` run successfully when the port is already free.
 - Ubuntu 24.04 + CloudPanel 2.5.3 + MariaDB + Nginx production deployment guide has been added; it assumes CloudPanel is already installed.
+- The CloudPanel deployment guide avoids cloning directly into non-empty `htdocs` by cloning to a temporary directory, moving the cloned app into the site directory, and preserving CloudPanel-managed `.well-known` files.
+- The CloudPanel deployment guide uses `pm2 startup` plus `pm2 save` for reboot restore.
 
 ## Database and Migration Notes
 
@@ -173,7 +180,7 @@ Recent schema changes require migrations if not already applied. Apply all pendi
 npm run prisma:migrate
 ```
 
-The latest migration added in the repo is `20260627193000_journal_enrichment`.
+The latest migration added in the repo is `20260627231500_pinned_collections`.
 
 Run `npm run prisma:generate` after schema changes or after pulling schema-changing work.
 

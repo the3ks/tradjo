@@ -182,6 +182,8 @@ model Collection {
   type        CollectionType
   description String?
   sortOrder   Int            @default(0)
+  isPinned    Boolean        @default(false)
+  pinnedAt    DateTime?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -192,6 +194,7 @@ model Collection {
   trades      Trade[]
 
   @@index([userId])
+  @@index([userId, isPinned, pinnedAt])
   @@index([parentId])
 }
 

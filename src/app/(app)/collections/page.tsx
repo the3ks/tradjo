@@ -1,4 +1,7 @@
-import { deleteCollectionAction } from "@/app/(app)/collections/actions";
+import {
+  deleteCollectionAction,
+  setCollectionPinnedAction
+} from "@/app/(app)/collections/actions";
 import { CollectionForm } from "@/components/collections/collection-form";
 import { SyncSourceForm } from "@/components/collections/sync-source-form";
 import { EmptyState } from "@/components/empty-state";
@@ -34,6 +37,7 @@ type CollectionWithRelations = {
   name: string;
   type: "FOLDER" | "TRADING";
   description: string | null;
+  isPinned: boolean;
   parent: {
     id: string;
     name: string;
@@ -130,6 +134,11 @@ export default async function CollectionsPage() {
                           <span className="rounded-full border border-border px-2 py-1 text-xs text-muted">
                             {collection.type === "FOLDER" ? "Folder" : "Trading"}
                           </span>
+                          {collection.isPinned ? (
+                            <span className="rounded-full border border-accent/40 bg-accent/10 px-2 py-1 text-xs text-accent">
+                              Pinned
+                            </span>
+                          ) : null}
                           {collection.parent ? (
                             <span className="rounded-full border border-border px-2 py-1 text-xs text-muted">
                               In {collection.parent.name}
@@ -166,19 +175,36 @@ export default async function CollectionsPage() {
                           </div>
                         ) : null}
                       </div>
-                      <form action={deleteCollectionAction}>
-                        <input
-                          name="collectionId"
-                          type="hidden"
-                          value={collection.id}
-                        />
-                        <button
-                          className="min-h-10 rounded-lg border border-danger/40 px-3 text-sm font-medium text-danger transition hover:bg-danger/10 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={!canDelete}
-                        >
-                          Delete
-                        </button>
-                      </form>
+                      <div className="flex flex-wrap gap-2">
+                        <form action={setCollectionPinnedAction}>
+                          <input
+                            name="collectionId"
+                            type="hidden"
+                            value={collection.id}
+                          />
+                          <input
+                            name="isPinned"
+                            type="hidden"
+                            value={collection.isPinned ? "false" : "true"}
+                          />
+                          <button className="min-h-10 rounded-lg border border-border px-3 text-sm font-medium text-muted transition hover:bg-surface-elevated hover:text-foreground active:translate-y-px">
+                            {collection.isPinned ? "Unpin" : "Pin"}
+                          </button>
+                        </form>
+                        <form action={deleteCollectionAction}>
+                          <input
+                            name="collectionId"
+                            type="hidden"
+                            value={collection.id}
+                          />
+                          <button
+                            className="min-h-10 rounded-lg border border-danger/40 px-3 text-sm font-medium text-danger transition hover:bg-danger/10 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={!canDelete}
+                          >
+                            Delete
+                          </button>
+                        </form>
+                      </div>
                     </div>
                     {collection.type === "TRADING" && !activeSyncSource ? (
                       <SyncSourceForm
