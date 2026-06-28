@@ -32,6 +32,16 @@ export function LoginForm() {
           required
         />
       </label>
+      <label className="flex items-center gap-3 text-sm font-medium text-muted">
+        <input
+          className="h-4 w-4 rounded border-border accent-accent"
+          defaultChecked
+          name="rememberMe"
+          type="checkbox"
+          value="true"
+        />
+        Remember me
+      </label>
       {state.error ? (
         <p className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
           {state.error}

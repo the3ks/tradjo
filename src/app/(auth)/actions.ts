@@ -10,12 +10,15 @@ import { prisma } from "@/lib/prisma";
 
 const authFormSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8)
+  password: z.string().min(8),
+  rememberMe: z.boolean().default(false)
 });
 
-const registerFormSchema = authFormSchema.extend({
-  name: z.string().trim().min(1).max(80)
-});
+const registerFormSchema = authFormSchema
+  .omit({ rememberMe: true })
+  .extend({
+    name: z.string().trim().min(1).max(80)
+  });
 
 export type AuthActionState = {
   error?: string;
@@ -27,7 +30,8 @@ export async function loginAction(
 ): Promise<AuthActionState> {
   const parsed = authFormSchema.safeParse({
     email: formData.get("email"),
-    password: formData.get("password")
+    password: formData.get("password"),
+    rememberMe: formData.get("rememberMe") === "true"
   });
 
   if (!parsed.success) {
@@ -38,6 +42,7 @@ export async function loginAction(
     await signIn("credentials", {
       email: parsed.data.email.toLowerCase(),
       password: parsed.data.password,
+      rememberMe: parsed.data.rememberMe ? "true" : "false",
       redirectTo: "/dashboard"
     });
   } catch (error) {

@@ -23,6 +23,7 @@ export type CollectionNavItem = {
 
 type CollectionTreeNavProps = {
   collections: CollectionNavItem[];
+  showPinned?: boolean;
 };
 
 type CollectionTreeLinksProps = {
@@ -35,12 +36,15 @@ type CollectionTreeNode = CollectionNavItem & {
   children: CollectionTreeNode[];
 };
 
-export function CollectionTreeNav({ collections }: CollectionTreeNavProps) {
+export function CollectionTreeNav({
+  collections,
+  showPinned = true
+}: CollectionTreeNavProps) {
   const pinnedCollections = getPinnedCollections(collections);
 
   return (
     <section className="mt-6 border-t border-border pt-4">
-      {pinnedCollections.length > 0 ? (
+      {showPinned && pinnedCollections.length > 0 ? (
         <div className="mb-4">
           <p className="mb-2 px-3 text-xs font-semibold uppercase text-muted">
             Pinned
@@ -58,6 +62,27 @@ export function CollectionTreeNav({ collections }: CollectionTreeNavProps) {
         </Link>
       </div>
       <CollectionTreeLinks collections={collections} />
+    </section>
+  );
+}
+
+export function PinnedCollectionNav({
+  collections
+}: {
+  collections: CollectionNavItem[];
+}) {
+  const pinnedCollections = getPinnedCollections(collections);
+
+  if (pinnedCollections.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="mb-5">
+      <p className="mb-2 px-3 text-xs font-semibold uppercase text-muted">
+        Pinned Collections
+      </p>
+      <PinnedCollectionLinks collections={pinnedCollections} />
     </section>
   );
 }

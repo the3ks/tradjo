@@ -2,7 +2,7 @@
 
 import { Folder, X } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   CollectionTreeLinks,
@@ -21,6 +21,24 @@ export function MobileCollectionDrawer({
   const [isOpen, setIsOpen] = useState(false);
   const pinnedCollections = getPinnedCollections(collections);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        close();
+      }
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isOpen]);
+
   function close() {
     setIsOpen(false);
   }
@@ -29,6 +47,7 @@ export function MobileCollectionDrawer({
     <>
       <button
         aria-label="Open collections"
+        aria-expanded={isOpen}
         className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-border text-muted transition hover:bg-surface-elevated hover:text-foreground active:translate-y-px"
         onClick={() => setIsOpen(true)}
         type="button"
@@ -36,17 +55,23 @@ export function MobileCollectionDrawer({
         <Folder aria-hidden="true" size={20} />
       </button>
       {isOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            aria-label="Close collections"
+        <div
+          aria-labelledby="mobile-collections-title"
+          aria-modal="true"
+          className="fixed inset-0 z-[80] lg:hidden"
+          role="dialog"
+        >
+          <div
+            aria-hidden="true"
             className="absolute inset-0 bg-black/35"
             onClick={close}
-            type="button"
           />
-          <section className="absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-hidden rounded-t-2xl border border-border bg-surface shadow-2xl">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <section className="absolute inset-x-0 top-16 z-10 flex max-h-[72vh] flex-col overflow-hidden rounded-b-2xl border border-border bg-surface shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold">Collections</h2>
+                <h2 className="text-sm font-semibold" id="mobile-collections-title">
+                  Collections
+                </h2>
                 <p className="text-xs text-muted">Jump to a filtered trade list.</p>
               </div>
               <button
@@ -58,9 +83,9 @@ export function MobileCollectionDrawer({
                 <X aria-hidden="true" size={18} />
               </button>
             </div>
-            <div className="max-h-[calc(82dvh-118px)] overflow-y-auto px-3 py-3">
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
               {pinnedCollections.length > 0 ? (
-                <div className="mb-4">
+                <div className="mb-3 border-b border-border pb-3">
                   <p className="mb-2 px-3 text-xs font-semibold uppercase text-muted">
                     Pinned
                   </p>
@@ -76,7 +101,7 @@ export function MobileCollectionDrawer({
                 onNavigate={close}
               />
             </div>
-            <div className="border-t border-border px-4 py-3">
+            <div className="shrink-0 border-t border-border px-4 py-3">
               <Link
                 className="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-border px-4 text-sm font-semibold text-muted transition hover:bg-surface-elevated hover:text-foreground active:translate-y-px"
                 href="/collections"

@@ -3,6 +3,7 @@ import type { Session } from "next-auth";
 
 import {
   CollectionTreeNav,
+  PinnedCollectionNav,
   type CollectionNavItem
 } from "@/components/collection-tree-nav";
 import { MobileCollectionDrawer } from "@/components/mobile-collection-drawer";
@@ -40,12 +41,13 @@ export function AppShell({
           </p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+          <PinnedCollectionNav collections={collectionNavItems} />
           <nav aria-label="Primary" className="grid gap-1">
             {navigation.map((item) => (
               <NavLink key={item.href} {...item} />
             ))}
           </nav>
-          <CollectionTreeNav collections={collectionNavItems} />
+          <CollectionTreeNav collections={collectionNavItems} showPinned={false} />
         </div>
         <form action={signOutAction} className="shrink-0 border-t border-border pt-4">
           <button className="min-h-10 w-full rounded-lg border border-border px-3 text-sm font-medium text-muted transition hover:bg-surface-elevated hover:text-foreground active:translate-y-px">
@@ -54,7 +56,7 @@ export function AppShell({
         </form>
       </aside>
 
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
         <div className="min-w-0">
           <p className="text-sm font-semibold">Trading Journal</p>
           <p className="truncate text-xs text-muted">{user.email}</p>

@@ -1,20 +1,44 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import {
+  decode as defaultDecode,
+  encode as defaultEncode
+} from "@auth/core/jwt";
 import { compare } from "bcryptjs";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
+const SESSION_MAX_AGE_REMEMBERED = 30 * 24 * 60 * 60;
+const SESSION_MAX_AGE_BROWSER = 12 * 60 * 60;
+
 const credentialsSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8)
+  password: z.string().min(8),
+  rememberMe: z
+    .union([z.literal("true"), z.literal("false"), z.boolean()])
+    .optional()
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: {
-    strategy: "jwt"
+    strategy: "jwt",
+    maxAge: SESSION_MAX_AGE_REMEMBERED
+  },
+  jwt: {
+    maxAge: SESSION_MAX_AGE_REMEMBERED,
+    async encode(params) {
+      return defaultEncode({
+        ...params,
+        maxAge:
+          params.token?.rememberMe === false
+            ? SESSION_MAX_AGE_BROWSER
+            : SESSION_MAX_AGE_REMEMBERED
+      });
+    },
+    decode: defaultDecode
   },
   pages: {
     signIn: "/login"
@@ -53,7 +77,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: user.id,
           email: user.email,
           name: user.name,
-          image: user.image
+          image: user.image,
+          rememberMe: parsed.data.rememberMe !== "false"
         };
       }
     })
@@ -62,6 +87,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
+        token.rememberMe = user.rememberMe;
       }
 
       return token;
@@ -70,6 +96,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.id = token.sub ?? "";
       }
+      session.rememberMe = token.rememberMe !== false;
 
       return session;
     }
