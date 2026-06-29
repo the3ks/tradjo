@@ -31,7 +31,7 @@ export function ScreenshotImporter({
     <div className="grid gap-5">
       <details
         className="overflow-hidden rounded-xl border border-border bg-surface"
-        open={defaultOpen}
+        open={state.draft ? false : defaultOpen}
       >
         <summary className="cursor-pointer px-5 py-4 text-base font-semibold transition hover:bg-background/70">
           Upload screenshot

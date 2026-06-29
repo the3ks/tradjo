@@ -288,7 +288,7 @@ ssh tradingjournal@YOUR_SERVER_IP
 cd ~/htdocs/tradjo-repo
 git pull
 
-rsync -a --delete --exclude '.git/' --exclude '.env' --exclude '.well-known/' --exclude 'node_modules/' --exclude 'uploads/' ./ ~/htdocs/journal.example.com/
+rsync -a ./ ~/htdocs/journal.example.com/
 
 cd ~/htdocs/journal.example.com
 npm ci

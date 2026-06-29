@@ -239,7 +239,13 @@ export default async function CollectionDetailPage({
             {trades.map((trade) => (
               <Link
                 className="grid gap-3 border-b border-border px-4 py-3 transition hover:bg-background/70 last:border-b-0 md:grid-cols-[1fr_110px_120px_120px_140px] md:gap-4"
-                href={`/trades/${trade.id}` as Route}
+                href={
+                  buildTradeDetailHref({
+                    returnLabel: `Back to ${collection.name}`,
+                    returnTo: `/collections/${collection.id}`,
+                    tradeId: trade.id
+                  }) as Route
+                }
                 key={trade.id}
               >
                 <div>
@@ -284,9 +290,9 @@ export default async function CollectionDetailPage({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-xs font-medium text-muted">{label}</p>
-      <p className="mt-1 break-words text-sm font-semibold">{value}</p>
+      <p className="mt-1 break-all text-sm font-semibold">{value}</p>
     </div>
   );
 }
@@ -382,4 +388,21 @@ function labelize(value: string) {
     .split("_")
     .map((part) => part[0].toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function buildTradeDetailHref({
+  returnLabel,
+  returnTo,
+  tradeId
+}: {
+  returnLabel: string;
+  returnTo: string;
+  tradeId: string;
+}) {
+  const searchParams = new URLSearchParams({
+    returnLabel,
+    returnTo
+  });
+
+  return `/trades/${tradeId}?${searchParams.toString()}`;
 }

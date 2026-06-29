@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 
 import { DateFilterInput } from "@/components/date-filter-input";
 import { EmptyState } from "@/components/empty-state";
@@ -89,6 +90,7 @@ export default async function TradesPage({ searchParams }: TradesPageProps) {
   const userId = await requireUserId();
   const params = normalizeSearchParams((await searchParams) ?? {});
   const where = buildTradeWhere(userId, params);
+  const currentPath = buildTradesPath(params);
   const [trades, collections, exchanges, symbols, tags]: [
     TradeListItem[],
     SelectOption[],
@@ -332,7 +334,11 @@ export default async function TradesPage({ searchParams }: TradesPageProps) {
             {trades.map((trade) => (
               <Link
                 className="grid gap-3 border-b border-border px-4 py-3 transition hover:bg-background/70 last:border-b-0 md:grid-cols-[1fr_120px_120px_120px_140px] md:gap-4"
-                href={`/trades/${trade.id}`}
+                href={buildTradeDetailHref({
+                  returnLabel: "Back to trades",
+                  returnTo: currentPath,
+                  tradeId: trade.id
+                }) as Route}
                 key={trade.id}
               >
                 <div>
@@ -459,6 +465,37 @@ function buildTradeWhere(
   }
 
   return where;
+}
+
+function buildTradesPath(params: ReturnType<typeof normalizeSearchParams>) {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      searchParams.set(key, value);
+    }
+  }
+
+  const query = searchParams.toString();
+
+  return query ? `/trades?${query}` : "/trades";
+}
+
+function buildTradeDetailHref({
+  returnLabel,
+  returnTo,
+  tradeId
+}: {
+  returnLabel: string;
+  returnTo: string;
+  tradeId: string;
+}) {
+  const searchParams = new URLSearchParams({
+    returnLabel,
+    returnTo
+  });
+
+  return `/trades/${tradeId}?${searchParams.toString()}`;
 }
 
 function getParam(value: string | string[] | undefined) {

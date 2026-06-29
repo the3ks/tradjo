@@ -70,10 +70,10 @@ export function SuggestionField({
   }
 
   const inputClassName =
-    "min-h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-accent";
+    "min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-accent";
 
   return (
-    <label className="grid gap-2 text-sm font-medium">
+    <label className="grid min-w-0 gap-2 text-sm font-medium">
       {label}
       {multiline ? (
         <textarea

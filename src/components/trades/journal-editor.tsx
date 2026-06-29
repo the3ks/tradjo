@@ -51,11 +51,11 @@ export function JournalEditor({
   return (
     <form
       action={formAction}
-      className="grid gap-5"
+      className="grid min-w-0 gap-5"
     >
       <input name="tradeId" type="hidden" value={tradeId} />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid min-w-0 gap-4 md:grid-cols-2">
         <SuggestionField
           category="strategy"
           defaultValue={journal?.strategy}
@@ -106,7 +106,7 @@ export function JournalEditor({
         />
       </div>
 
-      <fieldset className="grid gap-3">
+      <fieldset className="grid min-w-0 gap-3">
         <legend className="text-sm font-medium">Mistake tags</legend>
         {allTags.length > 0 ? (
           <div className="flex flex-wrap gap-2">
@@ -160,13 +160,13 @@ export function JournalEditor({
         placeholder="What should you repeat or avoid next time?"
       />
 
-      <section className="grid gap-3">
+      <section className="grid min-w-0 gap-3">
         <h3 className="text-sm font-medium">Screenshots</h3>
         {screenshots.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid min-w-0 gap-3 md:grid-cols-2">
             {screenshots.map((screenshot) => (
               <div
-                className="overflow-hidden rounded-lg border border-border bg-background"
+                className="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
                 key={screenshot.id}
               >
                 <div className="relative aspect-video w-full">
@@ -205,7 +205,7 @@ export function JournalEditor({
             Upload screenshots
             <input
               accept="image/jpeg,image/png,image/webp,image/gif"
-              className="min-h-11 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
+              className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
               multiple
               name="screenshots"
               type="file"
@@ -214,7 +214,7 @@ export function JournalEditor({
           <label className="grid gap-2 text-sm font-medium">
             New screenshot caption
             <input
-              className="min-h-11 rounded-lg border border-border bg-surface px-3 text-sm text-foreground outline-none transition focus:border-accent"
+              className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-surface px-3 text-sm text-foreground outline-none transition focus:border-accent"
               maxLength={240}
               name="newScreenshotCaption"
               placeholder="Entry context, exit reason..."
