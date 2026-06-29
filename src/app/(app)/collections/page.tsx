@@ -1,3 +1,6 @@
+import type { Route } from "next";
+import Link from "next/link";
+
 import {
   deleteCollectionAction,
   setCollectionPinnedAction
@@ -176,6 +179,14 @@ export default async function CollectionsPage() {
                         ) : null}
                       </div>
                       <div className="flex flex-wrap gap-2">
+                        {collection.type === "TRADING" ? (
+                          <Link
+                            className="inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-medium text-muted transition hover:bg-surface-elevated hover:text-foreground active:translate-y-px"
+                            href={`/collections/${collection.id}` as Route}
+                          >
+                            Open
+                          </Link>
+                        ) : null}
                         <form action={setCollectionPinnedAction}>
                           <input
                             name="collectionId"

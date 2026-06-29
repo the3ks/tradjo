@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 export const SUGGESTION_CATEGORIES = [
   "strategy",
   "setup",
+  "entry_trigger",
+  "exit_reason",
   "emotion",
   "grade",
   "mistake_tag",

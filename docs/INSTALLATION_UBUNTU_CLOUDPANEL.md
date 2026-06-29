@@ -98,7 +98,7 @@ Then enter the app directory:
 cd ~/htdocs/journal.example.com
 ```
 
-This moves the cloned Git working copy into `htdocs`, so later deployments can use normal `git pull` from the site directory.
+For ongoing deployments, keep a separate Git checkout under `~/htdocs` and sync it into the live site directory with `rsync`. This avoids running Git operations directly inside the CloudPanel-managed site root.
 
 ## 4. Configure Environment Variables
 
@@ -264,12 +264,33 @@ CloudPanel redirects HTTP to HTTPS by default for newly created sites.
 
 ## 10. Deployment Update Procedure
 
-For later deployments:
+For later deployments, pull the Git repository into a separate directory under `~/htdocs`, then sync the checked-out files into the live CloudPanel site directory with `rsync`.
+
+Use this layout:
+
+```text
+~/htdocs/trading-journal-repo      # Git checkout
+~/htdocs/journal.example.com       # Live CloudPanel site directory
+```
+
+Create the Git checkout once if it does not already exist:
 
 ```bash
 ssh tradingjournal@YOUR_SERVER_IP
-cd ~/htdocs/journal.example.com
+cd ~/htdocs
+git clone YOUR_REPOSITORY_URL trading-journal-repo
+```
+
+Then deploy updates:
+
+```bash
+ssh tradingjournal@YOUR_SERVER_IP
+cd ~/htdocs/tradjo-repo
 git pull
+
+rsync -a --delete --exclude '.git/' --exclude '.env' --exclude '.well-known/' --exclude 'node_modules/' --exclude 'uploads/' ./ ~/htdocs/journal.example.com/
+
+cd ~/htdocs/journal.example.com
 npm ci
 npm run prisma:generate
 npx prisma migrate deploy
@@ -277,6 +298,8 @@ npm run build
 pm2 restart trading-journal
 pm2 status
 ```
+
+Keep production-only files such as `.env`, `.well-known`, `node_modules`, and uploaded screenshots out of the Git checkout. The `rsync` exclusions preserve those files in the live site directory while still removing stale tracked files that were deleted from the repository.
 
 If package dependencies did not change, `npm ci` is still safe and reproducible. It may take longer but avoids dependency drift.
 

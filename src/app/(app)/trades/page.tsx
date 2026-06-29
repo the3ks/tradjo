@@ -165,6 +165,14 @@ export default async function TradesPage({ searchParams }: TradesPageProps) {
         description="Browse synced journal trades and inspect final net results."
       />
       <div className="grid gap-4 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex justify-end">
+          <Link
+            className="inline-flex min-h-10 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-foreground transition active:translate-y-px"
+            href="/trades/import-screenshot"
+          >
+            Import screenshot
+          </Link>
+        </div>
         <form
           action="/trades"
           className="grid gap-3 rounded-xl border border-border bg-surface p-4 md:grid-cols-4 xl:grid-cols-8"

@@ -7,8 +7,9 @@ import {
   FolderSimpleDashed,
   ListMagnifyingGlass
 } from "@phosphor-icons/react";
+import type { Route } from "next";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
@@ -95,8 +96,6 @@ export function PinnedCollectionLinks({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const activeCollectionId = searchParams.get("collectionId");
 
   if (collections.length === 0) {
     return null;
@@ -105,8 +104,8 @@ export function PinnedCollectionLinks({
   return (
     <nav aria-label="Pinned collections" className="grid gap-1">
       {collections.map((collection) => {
-        const isActive =
-          pathname === "/trades" && activeCollectionId === collection.id;
+        const href = `/collections/${collection.id}` as Route;
+        const isActive = pathname === href;
 
         return (
           <Link
@@ -114,7 +113,7 @@ export function PinnedCollectionLinks({
               "flex min-h-9 items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-border hover:bg-surface-elevated hover:text-foreground active:translate-y-px",
               isActive && "border-border bg-surface-elevated text-foreground"
             )}
-            href={`/trades?collectionId=${collection.id}`}
+            href={href}
             key={collection.id}
             onClick={onNavigate}
           >
@@ -133,8 +132,6 @@ export function CollectionTreeLinks({
   onNavigate
 }: CollectionTreeLinksProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const activeCollectionId = searchParams.get("collectionId");
   const tree = buildCollectionTree(collections);
 
   if (tree.length === 0) {
@@ -145,7 +142,6 @@ export function CollectionTreeLinks({
     <nav aria-label="Collection shortcuts" className="grid gap-1">
       {tree.map((node) => (
         <CollectionNode
-          activeCollectionId={activeCollectionId}
           key={node.id}
           node={node}
           onNavigate={onNavigate}
@@ -157,18 +153,17 @@ export function CollectionTreeLinks({
 }
 
 function CollectionNode({
-  activeCollectionId,
   node,
   onNavigate,
   pathname
 }: {
-  activeCollectionId: string | null;
   node: CollectionTreeNode;
   onNavigate?: () => void;
   pathname: string;
 }) {
   if (node.type === "TRADING") {
-    const isActive = pathname === "/trades" && activeCollectionId === node.id;
+    const href = `/collections/${node.id}` as Route;
+    const isActive = pathname === href;
 
     return (
       <Link
@@ -176,7 +171,7 @@ function CollectionNode({
           "flex min-h-9 items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-border hover:bg-surface-elevated hover:text-foreground active:translate-y-px",
           isActive && "border-border bg-surface-elevated text-foreground"
         )}
-        href={`/trades?collectionId=${node.id}`}
+        href={href}
         onClick={onNavigate}
       >
         <ListMagnifyingGlass aria-hidden="true" size={16} />
@@ -209,7 +204,6 @@ function CollectionNode({
         {node.children.length > 0 ? (
           node.children.map((child) => (
             <CollectionNode
-              activeCollectionId={activeCollectionId}
               key={child.id}
               node={child}
               onNavigate={onNavigate}

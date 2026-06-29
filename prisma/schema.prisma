@@ -17,6 +17,10 @@ enum ExchangeName {
   BINGX
 }
 
+enum AiProvider {
+  GEMINI
+}
+
 enum MarketType {
   PERPETUAL
   SPOT
@@ -87,6 +91,7 @@ model User {
   profile           UserProfile?
   collections       Collection[]
   exchangeConnections ExchangeConnection[]
+  aiCredentials     UserAiCredential[]
   syncSources       CollectionSyncSource[]
   rawOrders         RawOrder[]
   rawFills          RawFill[]
@@ -98,6 +103,20 @@ model User {
   tradeScreenshots  TradeScreenshot[]
   suggestionValues  UserSuggestionValue[]
   syncLogs          ExchangeSyncLog[]
+}
+
+model UserAiCredential {
+  id              String     @id @default(cuid())
+  userId          String
+  provider        AiProvider
+  apiKeyEncrypted String     @db.VarChar(1000)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
 }
 
 model Account {
@@ -399,6 +418,8 @@ model TradeJournal {
   tradeId   String   @unique
   strategy  String?  @db.VarChar(120)
   setup     String?  @db.VarChar(160)
+  entryTrigger String? @db.VarChar(240)
+  exitReason   String? @db.VarChar(240)
   notes     String?  @db.Text
   emotion   String?  @db.VarChar(80)
   review    String?  @db.Text
@@ -413,6 +434,8 @@ model TradeJournal {
   @@index([userId])
   @@index([strategy])
   @@index([setup])
+  @@index([entryTrigger])
+  @@index([exitReason])
   @@index([emotion])
   @@index([grade])
 }

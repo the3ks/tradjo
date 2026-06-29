@@ -70,6 +70,8 @@ export default async function TradeDetailPage({ params }: TradeDetailPageProps) 
     ? {
         strategy: trade.journal.strategy,
         setup: trade.journal.setup,
+        entryTrigger: trade.journal.entryTrigger,
+        exitReason: trade.journal.exitReason,
         notes: trade.journal.notes,
         emotion: trade.journal.emotion,
         review: trade.journal.review,
@@ -98,6 +100,14 @@ export default async function TradeDetailPage({ params }: TradeDetailPageProps) 
             <Metric label="Quantity" value={formatDecimal(trade.quantity)} />
             <Metric label="Net win/loss" value={formatDecimal(trade.netPnl)} />
             <Metric label="Strategy" value={trade.journal?.strategy ?? "-"} />
+            <Metric
+              label="Entry Trigger"
+              value={trade.journal?.entryTrigger ?? "-"}
+            />
+            <Metric
+              label="Exit Reason"
+              value={trade.journal?.exitReason ?? "-"}
+            />
             <Metric label="Grade" value={trade.journal?.grade ?? "-"} />
           </div>
         </section>

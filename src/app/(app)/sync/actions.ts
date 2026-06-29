@@ -33,6 +33,7 @@ export async function runCollectionSyncAction(formData: FormData) {
     return;
   }
 
+  const collectionPath = `/collections/${syncSource.collection.id}`;
   const now = new Date();
   const syncType = syncSource.initialSyncCompleted ? "INCREMENTAL" : "INITIAL";
   const log = await prisma.exchangeSyncLog.create({
@@ -73,4 +74,6 @@ export async function runCollectionSyncAction(formData: FormData) {
   }
 
   revalidatePath("/sync");
+  revalidatePath(collectionPath);
+  revalidatePath("/trades");
 }

@@ -56,3 +56,5 @@ Desktop.ini
 
 # Local agent/runtime state
 .agents/
+
+/.codex-remote-attachments/

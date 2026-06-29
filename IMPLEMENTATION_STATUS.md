@@ -65,12 +65,13 @@ The app now runs manual BingX raw sync, creates normalized journal trades for co
 ### Collections and Sync Sources
 
 - Collections page at `/collections`.
+- Dedicated trading collection detail pages at `/collections/[collectionId]` show only trades for that collection, collection-level sync source details, a Sync trades button, and simple collection stats.
 - Desktop sidebar includes an expandable folder/trading collection tree for quick collection access.
 - Mobile header includes a collection drawer for quick folder/trading collection access.
 - Mobile collection drawer uses a high-layer fixed top-sheet dialog below the header with a separated backdrop so the collection tree remains tappable on small screens and real mobile browsers.
 - Trading collections can be pinned/unpinned from `/collections`.
 - Pinned trading collections appear at the top of the desktop sidebar and in a quick-access section in the mobile collection drawer.
-- Trading collection sidebar shortcuts open `/trades` with the matching `collectionId` filter.
+- Trading collection sidebar shortcuts open the dedicated collection detail page; advanced filtered querying remains available from `/trades`.
 - Folder and trading collection creation.
 - Folder/trading validation helpers and tests.
 - Folder collections can contain children.

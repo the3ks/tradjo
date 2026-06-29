@@ -18,6 +18,8 @@ type JournalEditorProps = {
   journal: {
     strategy: string | null;
     setup: string | null;
+    entryTrigger: string | null;
+    exitReason: string | null;
     notes: string | null;
     emotion: string | null;
     review: string | null;
@@ -50,7 +52,6 @@ export function JournalEditor({
     <form
       action={formAction}
       className="grid gap-5"
-      encType="multipart/form-data"
     >
       <input name="tradeId" type="hidden" value={tradeId} />
 
@@ -70,6 +71,22 @@ export function JournalEditor({
           maxLength={160}
           name="setup"
           placeholder="Liquidity sweep, pullback, news reaction..."
+        />
+        <SuggestionField
+          category="entry_trigger"
+          defaultValue={journal?.entryTrigger}
+          label="Entry Trigger"
+          maxLength={240}
+          name="entryTrigger"
+          placeholder="Break of structure, retest, candle close..."
+        />
+        <SuggestionField
+          category="exit_reason"
+          defaultValue={journal?.exitReason}
+          label="Exit Reason"
+          maxLength={240}
+          name="exitReason"
+          placeholder="Target hit, invalidation, manual close..."
         />
         <SuggestionField
           category="emotion"
