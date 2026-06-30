@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import {
   extractScreenshotTradeAction,
+  parseBingXTableTextAction,
   saveScreenshotTradeAction,
   type ScreenshotImportActionState
 } from "@/app/(app)/trades/import-screenshot/actions";
@@ -22,16 +23,33 @@ export function ScreenshotImporter({
   defaultOpen?: boolean;
   hasGeminiKey: boolean;
 }) {
-  const [state, formAction] = useActionState(
+  const [screenshotState, formAction] = useActionState(
     extractScreenshotTradeAction,
     initialState
   );
+  const [tableTextState, tableTextAction] = useActionState(
+    parseBingXTableTextAction,
+    initialState
+  );
+  const [lastImportSource, setLastImportSource] = useState<
+    "screenshot" | "tableText" | null
+  >(null);
+  const activeState =
+    lastImportSource === "tableText" ? tableTextState : screenshotState.drafts ? screenshotState : tableTextState;
+  const activeSource =
+    lastImportSource === "tableText" && tableTextState.drafts
+      ? "pasted table text"
+      : screenshotState.drafts
+        ? "uploaded screenshot"
+        : tableTextState.drafts
+          ? "pasted table text"
+          : undefined;
 
   return (
     <div className="grid gap-5">
       <details
         className="overflow-hidden rounded-xl border border-border bg-surface"
-        open={state.draft ? false : defaultOpen}
+        open={activeState.drafts ? false : defaultOpen}
       >
         <summary className="cursor-pointer px-5 py-4 text-base font-semibold transition hover:bg-background/70">
           Upload screenshot
@@ -39,10 +57,11 @@ export function ScreenshotImporter({
         <form
           action={formAction}
           className="grid gap-4 border-t border-border p-5"
+          onSubmit={() => setLastImportSource("screenshot")}
         >
           <div>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              Supports BingX Standard Futures open position and closed trade screenshots.
+              Supports multiple BingX Standard Futures screenshots. A single screenshot can contain more than one trade.
             </p>
             {collectionName ? (
               <p className="mt-2 text-sm font-medium text-foreground">
@@ -54,12 +73,13 @@ export function ScreenshotImporter({
             <input name="collectionId" type="hidden" value={collectionId} />
           ) : null}
           <label className="grid gap-2 text-sm font-medium">
-            Screenshot
+            Screenshots
             <input
               accept="image/jpeg,image/png,image/webp"
               className="min-h-11 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
               disabled={!hasGeminiKey}
-              name="screenshot"
+              multiple
+              name="screenshots"
               required
               type="file"
             />
@@ -69,59 +89,132 @@ export function ScreenshotImporter({
               Add your Gemini API key in Settings before importing screenshots.
             </p>
           ) : null}
-          {state.error ? (
+          {screenshotState.error ? (
             <p className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
-              {state.error}
+              {screenshotState.error}
             </p>
           ) : null}
           <SubmitButton disabled={!hasGeminiKey} />
         </form>
       </details>
 
+      <BingXTableTextImporter
+        action={tableTextAction}
+        collectionId={collectionId}
+        collectionName={collectionName}
+        hasDrafts={Boolean(activeState.drafts)}
+        onSubmit={() => setLastImportSource("tableText")}
+        state={tableTextState}
+      />
+
       <DirectJsonTradeEditor
         collectionId={collectionId}
         collectionName={collectionName}
-        draft={state.draft}
-        existingTradeMatch={state.existingTradeMatch}
-        targetCollection={state.targetCollection}
+        drafts={activeState.drafts}
+        existingTradeMatches={activeState.existingTradeMatches}
+        sourceLabel={activeSource}
+        targetCollection={activeState.targetCollection}
       />
     </div>
+  );
+}
+
+function BingXTableTextImporter({
+  action,
+  collectionId,
+  collectionName,
+  hasDrafts,
+  onSubmit,
+  state
+}: {
+  action: (payload: FormData) => void;
+  collectionId?: string;
+  collectionName?: string;
+  hasDrafts: boolean;
+  onSubmit: () => void;
+  state: ScreenshotImportActionState;
+}) {
+  return (
+    <details
+      className="overflow-hidden rounded-xl border border-border bg-surface"
+      open={hasDrafts ? false : undefined}
+    >
+      <summary className="cursor-pointer px-5 py-4 text-base font-semibold transition hover:bg-background/70">
+        Paste BingX table text
+      </summary>
+      <form
+        action={action}
+        className="grid gap-4 border-t border-border p-5"
+        onSubmit={onSubmit}
+      >
+        <div>
+          <p className="max-w-2xl text-sm leading-6 text-muted">
+            Paste copied BingX open or closed futures table text. Header rows are optional; if they are missing, the parser uses the open/closed column order from your samples.
+          </p>
+          {collectionName ? (
+            <p className="mt-2 text-sm font-medium text-foreground">
+              Target collection: {collectionName}
+            </p>
+          ) : null}
+        </div>
+        {collectionId ? (
+          <input name="collectionId" type="hidden" value={collectionId} />
+        ) : null}
+        <label className="grid gap-2 text-sm font-medium">
+          Table text
+          <textarea
+            className="min-h-64 rounded-lg border border-border bg-background p-3 font-mono text-xs leading-5 text-foreground outline-none transition focus:border-accent"
+            name="tableText"
+            placeholder="Paste BingX copied table text here..."
+            spellCheck={false}
+          />
+        </label>
+        {state.error ? (
+          <p className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+            {state.error}
+          </p>
+        ) : null}
+        <ParseButton />
+      </form>
+    </details>
   );
 }
 
 function DirectJsonTradeEditor({
   collectionId,
   collectionName,
-  draft,
-  existingTradeMatch,
+  drafts,
+  existingTradeMatches,
+  sourceLabel,
   targetCollection
 }: {
   collectionId?: string;
   collectionName?: string;
-  draft?: ScreenshotImportActionState["draft"];
-  existingTradeMatch?: ScreenshotImportActionState["existingTradeMatch"];
+  drafts?: ScreenshotImportActionState["drafts"];
+  existingTradeMatches?: ScreenshotImportActionState["existingTradeMatches"];
+  sourceLabel?: string;
   targetCollection?: ScreenshotImportActionState["targetCollection"];
 }) {
   const [saveState, saveAction] = useActionState(saveScreenshotTradeAction, {});
-  const jsonValue = draft ? JSON.stringify(draft, null, 2) : defaultDraftJson;
+  const jsonValue = drafts ? JSON.stringify(drafts, null, 2) : defaultDraftJson;
 
   return (
     <details
       className="overflow-hidden rounded-xl border border-border bg-surface"
-      open={Boolean(draft)}
+      open={Boolean(drafts)}
     >
       <summary className="cursor-pointer px-5 py-4 text-base font-semibold transition hover:bg-background/70">
         Input raw JSON
       </summary>
       <form action={saveAction} className="grid gap-4 border-t border-border p-5">
         <div>
-          {draft ? (
+          {drafts ? (
             <p className="max-w-2xl rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm leading-6 text-accent">
-              Extracted JSON from the uploaded screenshot has been loaded here. Edit the JSON if needed, then save this exact content.
+              Parsed JSON from {sourceLabel ?? "the import source"} has been loaded here as {drafts.length === 1 ? "1 trade" : `${drafts.length} trades`}. Edit the JSON if needed, then save this exact content.
             </p>
           ) : (
             <p className="max-w-2xl text-sm leading-6 text-muted">
-              Paste or edit a trade JSON object directly, then save it into this collection.
+              Paste or edit one trade JSON object or an array of trade JSON objects, then save them into this collection.
             </p>
           )}
           {targetCollection ?? collectionName ? (
@@ -130,10 +223,16 @@ function DirectJsonTradeEditor({
             </p>
           ) : null}
         </div>
-        {existingTradeMatch ? (
-          <div className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
-            <p className="font-semibold">{matchLabel(existingTradeMatch.kind)}</p>
-            <p className="mt-1 text-muted">{existingTradeMatch.message}</p>
+        {existingTradeMatches?.length ? (
+          <div className="grid gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm">
+            {existingTradeMatches.map((match, index) => (
+              <div key={`${match.kind}-${match.tradeId ?? index}`}>
+                <p className="font-semibold">
+                  Trade {index + 1}: {matchLabel(match.kind)}
+                </p>
+                <p className="mt-1 text-muted">{match.message}</p>
+              </div>
+            ))}
           </div>
         ) : null}
         {collectionId ? (
@@ -184,7 +283,23 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
   );
 }
 
-function matchLabel(kind: NonNullable<ScreenshotImportActionState["existingTradeMatch"]>["kind"]) {
+function ParseButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      className="min-h-11 w-fit rounded-lg bg-accent px-4 text-sm font-semibold text-accent-foreground transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-70"
+      disabled={pending}
+      type="submit"
+    >
+      {pending ? "Parsing..." : "Parse table text"}
+    </button>
+  );
+}
+
+function matchLabel(
+  kind: NonNullable<ScreenshotImportActionState["existingTradeMatches"]>[number]["kind"]
+) {
   switch (kind) {
     case "EXACT_TRADE":
       return "Existing trade";
@@ -210,38 +325,40 @@ function SaveButton({ disabled }: { disabled: boolean }) {
 }
 
 const defaultDraftJson = JSON.stringify(
-  {
-    screenType: "OPEN_POSITION",
-    exchange: "BINGX",
-    marketType: "FUTURES",
-    symbol: "BTCUSDT",
-    side: "LONG",
-    marginMode: "ISOLATED",
-    leverage: null,
-    entryPrice: null,
-    currentPrice: null,
-    closePrice: null,
-    positionSize: null,
-    positionUnit: null,
-    margin: null,
-    totalVolume: null,
-    unrealizedPnl: null,
-    unrealizedPnlPercent: null,
-    realizedPnl: null,
-    realizedPnlPercent: null,
-    liquidationPrice: null,
-    takeProfit: null,
-    stopLoss: null,
-    fundingFee: null,
-    tradingFee: null,
-    openTime: null,
-    closeTime: null,
-    screenshotTime: null,
-    orderNo: null,
-    orderType: null,
-    confidence: 1,
-    warnings: []
-  },
+  [
+    {
+      screenType: "OPEN_POSITION",
+      exchange: "BINGX",
+      marketType: "FUTURES",
+      symbol: "BTCUSDT",
+      side: "LONG",
+      marginMode: "ISOLATED",
+      leverage: null,
+      entryPrice: null,
+      currentPrice: null,
+      closePrice: null,
+      positionSize: null,
+      positionUnit: null,
+      margin: null,
+      totalVolume: null,
+      unrealizedPnl: null,
+      unrealizedPnlPercent: null,
+      realizedPnl: null,
+      realizedPnlPercent: null,
+      liquidationPrice: null,
+      takeProfit: null,
+      stopLoss: null,
+      fundingFee: null,
+      tradingFee: null,
+      openTime: null,
+      closeTime: null,
+      screenshotTime: null,
+      orderNo: null,
+      orderType: null,
+      confidence: 1,
+      warnings: []
+    }
+  ],
   null,
   2
 );

@@ -35,6 +35,10 @@ export const extractedTradeDraftSchema = z.object({
 
 export type ExtractedTradeDraft = z.infer<typeof extractedTradeDraftSchema>;
 
+export const extractedTradeDraftsSchema = z
+  .union([extractedTradeDraftSchema, z.array(extractedTradeDraftSchema)])
+  .transform((value) => (Array.isArray(value) ? value : [value]));
+
 const geminiResponseSchema = z.object({
   candidates: z
     .array(
@@ -102,13 +106,13 @@ export async function extractTradeDraftWithGemini({
     .trim();
   const parsedJson = JSON.parse(stripJsonFence(text)) as unknown;
 
-  return extractedTradeDraftSchema.parse(parsedJson);
+  return extractedTradeDraftsSchema.parse(parsedJson);
 }
 
 const extractionPrompt = `
-Extract a BingX Standard Futures trade from this mobile screenshot.
+Extract all BingX Standard Futures trades visible in this mobile screenshot.
 
-Return only JSON matching this shape:
+Return only a JSON array. Each array item must match this shape:
 {
   "screenType": "OPEN_POSITION" | "CLOSED_TRADE" | "UNKNOWN",
   "exchange": "BINGX",
@@ -145,6 +149,8 @@ Return only JSON matching this shape:
 Rules:
 - Use OPEN_POSITION when the screenshot shows an active position with Last Price, Est. Liq. Price, or Close button.
 - Use CLOSED_TRADE when it shows Close Price, Trading Fee, Open Time, Close Time, or Closed manually.
+- If multiple trades are visible, return one array item per trade.
+- If no trade is visible, return one UNKNOWN item.
 - Convert comma-formatted numbers to plain numbers.
 - Convert percentage values to numbers without the percent sign.
 - Use null for "--", missing, hidden, cropped, or unreadable values.

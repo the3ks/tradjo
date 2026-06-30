@@ -65,7 +65,7 @@ export default async function CollectionDetailPage({
     notFound();
   }
 
-  const [trades, geminiCredential] = await Promise.all([
+  const [trades, dashboardTrades, geminiCredential] = await Promise.all([
     prisma.trade.findMany({
       where: {
         userId,
@@ -96,6 +96,19 @@ export default async function CollectionDetailPage({
       orderBy: [{ closedAt: "desc" }, { openedAt: "desc" }, { createdAt: "desc" }],
       take: 100
     }),
+    prisma.trade.findMany({
+      where: {
+        userId,
+        collectionId: collection.id
+      },
+      select: {
+        status: true,
+        grossPnl: true,
+        tradingFee: true,
+        fundingFee: true,
+        netPnl: true
+      }
+    }),
     prisma.userAiCredential.findUnique({
       where: {
         userId_provider: {
@@ -107,7 +120,7 @@ export default async function CollectionDetailPage({
     })
   ]);
   const activeSyncSource = collection.syncSources[0];
-  const stats = summarizeTrades(trades);
+  const stats = summarizeTrades(dashboardTrades);
 
   return (
     <>
@@ -130,6 +143,33 @@ export default async function CollectionDetailPage({
             Advanced trade filters
           </Link>
         </div>
+
+        <details className="overflow-hidden rounded-xl border border-border bg-surface">
+          <summary className="cursor-pointer px-5 py-4 text-base font-semibold transition hover:bg-background/70">
+            Trade dashboard
+          </summary>
+          <div className="grid gap-3 border-t border-border p-5 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Net result"
+              tone={stats.netPnl}
+              value={formatNumber(stats.netPnl)}
+            />
+            <StatCard label="Win rate" value={`${stats.winRate.toFixed(1)}%`} />
+            <StatCard label="Trades" value={stats.count.toString()} />
+            <StatCard
+              label="Profit factor"
+              value={formatProfitFactor(stats.profitFactor)}
+            />
+            <StatCard label="Closed" value={stats.closedCount.toString()} />
+            <StatCard label="Open" value={stats.openCount.toString()} />
+            <StatCard
+              label="Average net"
+              tone={stats.averageNet}
+              value={formatNumber(stats.averageNet)}
+            />
+            <StatCard label="Total fees" value={formatNumber(stats.totalFees)} />
+          </div>
+        </details>
 
         <details className="overflow-hidden rounded-xl border border-border bg-surface">
           <summary className="cursor-pointer px-5 py-4 text-base font-semibold transition hover:bg-background/70">
@@ -211,13 +251,6 @@ export default async function CollectionDetailPage({
           hasGeminiKey={Boolean(geminiCredential)}
         />
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Trades" value={stats.count.toString()} />
-          <StatCard label="Closed" value={stats.closedCount.toString()} />
-          <StatCard label="Win rate" value={`${stats.winRate.toFixed(1)}%`} />
-          <StatCard label="Net result" value={formatNumber(stats.netPnl)} />
-        </section>
-
         {trades.length === 0 ? (
           <EmptyState
             title="No trades in this collection"
@@ -297,11 +330,21 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({
+  label,
+  tone,
+  value
+}: {
+  label: string;
+  tone?: number;
+  value: string;
+}) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
       <p className="text-xs font-medium text-muted">{label}</p>
-      <p className="mt-2 font-mono text-lg font-semibold">{value}</p>
+      <p className={`mt-2 font-mono text-lg font-semibold ${pnlTone(tone)}`}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -309,23 +352,50 @@ function StatCard({ label, value }: { label: string; value: string }) {
 function summarizeTrades(
   trades: Array<{
     status: string;
+    tradingFee: DecimalValue | null;
+    fundingFee: DecimalValue | null;
     netPnl: DecimalValue | null;
   }>
 ) {
   const closedTrades = trades.filter((trade) => trade.status !== "OPEN");
-  const wins = closedTrades.filter(
+  const winningTrades = closedTrades.filter(
     (trade) => trade.netPnl && trade.netPnl.toNumber() > 0
-  ).length;
+  );
   const netPnl = trades.reduce(
     (total, trade) => total + (trade.netPnl?.toNumber() ?? 0),
     0
   );
+  const losses = closedTrades.filter(
+    (trade) => trade.netPnl && trade.netPnl.toNumber() < 0
+  );
+  const grossProfit = winningTrades.reduce(
+    (total, trade) => total + (trade.netPnl?.toNumber() ?? 0),
+    0
+  );
+  const grossLoss = Math.abs(
+    losses.reduce((total, trade) => total + (trade.netPnl?.toNumber() ?? 0), 0)
+  );
+  const totalFees = trades.reduce(
+    (total, trade) =>
+      total +
+      Math.abs(trade.tradingFee?.toNumber() ?? 0) +
+      Math.abs(trade.fundingFee?.toNumber() ?? 0),
+    0
+  );
 
   return {
+    averageNet: closedTrades.length > 0 ? netPnl / closedTrades.length : 0,
     closedCount: closedTrades.length,
     count: trades.length,
     netPnl,
-    winRate: closedTrades.length > 0 ? (wins / closedTrades.length) * 100 : 0
+    openCount: trades.length - closedTrades.length,
+    profitFactor:
+      grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0,
+    totalFees,
+    winRate:
+      closedTrades.length > 0
+        ? (winningTrades.length / closedTrades.length) * 100
+        : 0
   };
 }
 
@@ -368,6 +438,14 @@ function pnlClassName(value: DecimalValue | null, strong = false) {
   return base;
 }
 
+function pnlTone(value: number | undefined) {
+  if (value === undefined || value === 0) {
+    return "";
+  }
+
+  return value > 0 ? "text-profit" : "text-loss";
+}
+
 function formatDecimal(value: DecimalValue | null) {
   return value ? value.toString() : "-";
 }
@@ -376,6 +454,14 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 8
   }).format(value);
+}
+
+function formatProfitFactor(value: number) {
+  if (value === Infinity) {
+    return "∞";
+  }
+
+  return value.toFixed(2);
 }
 
 function formatDate(value: Date | null) {

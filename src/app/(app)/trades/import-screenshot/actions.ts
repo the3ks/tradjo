@@ -6,9 +6,10 @@ import { z } from "zod";
 
 import {
   extractTradeDraftWithGemini,
-  extractedTradeDraftSchema,
+  extractedTradeDraftsSchema,
   type ExtractedTradeDraft
 } from "@/lib/trade-screenshot-extraction";
+import { parseBingXTableText } from "@/lib/bingx-table-text-parser";
 import { getEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/secret-crypto";
@@ -23,11 +24,15 @@ const saveScreenshotTradeSchema = z.object({
   collectionId: z.string().trim().min(1),
   draftJson: z.string().trim().min(1)
 });
+const parseBingXTableTextSchema = z.object({
+  collectionId: z.string().trim().optional(),
+  tableText: z.string().trim().min(1)
+});
 
 export type ScreenshotImportActionState = {
   error?: string;
-  existingTradeMatch?: ExistingTradeMatch;
-  draft?: ExtractedTradeDraft;
+  existingTradeMatches?: ExistingTradeMatch[];
+  drafts?: ExtractedTradeDraft[];
   targetCollection?: {
     id: string;
     name: string;
@@ -43,29 +48,100 @@ export type ExistingTradeMatch = {
 export type SaveScreenshotTradeActionState = {
   error?: string;
   success?: string;
-  tradeId?: string;
+  tradeIds?: string[];
 };
+
+export async function parseBingXTableTextAction(
+  _state: ScreenshotImportActionState,
+  formData: FormData
+): Promise<ScreenshotImportActionState> {
+  const userId = await requireUserId();
+  const parsed = parseBingXTableTextSchema.safeParse({
+    collectionId: formData.get("collectionId") || undefined,
+    tableText: formData.get("tableText")
+  });
+
+  if (!parsed.success) {
+    return { error: "Paste BingX table text before parsing." };
+  }
+
+  try {
+    const targetCollection = parsed.data.collectionId
+      ? await prisma.collection.findFirst({
+          where: {
+            id: parsed.data.collectionId,
+            userId,
+            type: "TRADING"
+          },
+          select: {
+            id: true,
+            name: true
+          }
+        })
+      : null;
+
+    if (parsed.data.collectionId && !targetCollection) {
+      return { error: "The selected trading collection was not found." };
+    }
+
+    const drafts = parseBingXTableText(parsed.data.tableText);
+
+    if (drafts.length === 0) {
+      return {
+        error:
+          "No BingX futures trades were found. Paste the copied open or closed trades table text."
+      };
+    }
+
+    const existingTradeMatches = targetCollection
+      ? await Promise.all(
+          drafts.map((draft) =>
+            findExistingTradeMatch({
+              collectionId: targetCollection.id,
+              draft,
+              userId
+            })
+          )
+        )
+      : undefined;
+
+    return {
+      drafts,
+      existingTradeMatches,
+      targetCollection: targetCollection ?? undefined
+    };
+  } catch {
+    return {
+      error:
+        "Could not parse the BingX table text. Keep the copied row order from the open or closed trades table."
+    };
+  }
+}
 
 export async function extractScreenshotTradeAction(
   _state: ScreenshotImportActionState,
   formData: FormData
 ): Promise<ScreenshotImportActionState> {
   const userId = await requireUserId();
-  const file = formData.get("screenshot");
+  const files = formData
+    .getAll("screenshots")
+    .filter((value): value is File => value instanceof File && value.size > 0);
   const context = importContextSchema.parse({
     collectionId: formData.get("collectionId") || undefined
   });
 
-  if (!(file instanceof File) || file.size <= 0) {
-    return { error: "Choose a screenshot to extract." };
+  if (files.length === 0) {
+    return { error: "Choose at least one screenshot to extract." };
   }
 
-  if (!allowedImageTypes.has(file.type)) {
-    return { error: "Use a JPG, PNG, or WebP screenshot." };
-  }
+  for (const file of files) {
+    if (!allowedImageTypes.has(file.type)) {
+      return { error: "Use JPG, PNG, or WebP screenshots." };
+    }
 
-  if (file.size > maxImportBytes) {
-    return { error: "Screenshot must be 5MB or smaller." };
+    if (file.size > maxImportBytes) {
+      return { error: "Each screenshot must be 5MB or smaller." };
+    }
   }
 
   const credential = await prisma.userAiCredential.findUnique({
@@ -104,23 +180,33 @@ export async function extractScreenshotTradeAction(
       credential.apiKeyEncrypted,
       getEnv().ENCRYPTION_KEY
     );
-    const imageBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
-    const draft = await extractTradeDraftWithGemini({
-      apiKey,
-      imageBase64,
-      mimeType: file.type
-    });
-    const existingTradeMatch = targetCollection
-      ? await findExistingTradeMatch({
-          collectionId: targetCollection.id,
-          draft,
-          userId
-        })
+    const extractedDraftGroups = await Promise.all(
+      files.map(async (file) => {
+        const imageBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+
+        return extractTradeDraftWithGemini({
+          apiKey,
+          imageBase64,
+          mimeType: file.type
+        });
+      })
+    );
+    const drafts = extractedDraftGroups.flat();
+    const existingTradeMatches = targetCollection
+      ? await Promise.all(
+          drafts.map((draft) =>
+            findExistingTradeMatch({
+              collectionId: targetCollection.id,
+              draft,
+              userId
+            })
+          )
+        )
       : undefined;
 
     return {
-      draft,
-      existingTradeMatch,
+      drafts,
+      existingTradeMatches,
       targetCollection: targetCollection ?? undefined
     };
   } catch (error) {
@@ -153,20 +239,16 @@ export async function saveScreenshotTradeAction(
     return { error: "Choose a collection and provide extracted JSON." };
   }
 
-  let draft: ExtractedTradeDraft;
+  let drafts: ExtractedTradeDraft[];
 
   try {
-    draft = extractedTradeDraftSchema.parse(JSON.parse(parsed.data.draftJson));
+    drafts = extractedTradeDraftsSchema.parse(JSON.parse(parsed.data.draftJson));
   } catch {
-    return { error: "Extracted JSON is not valid. Fix the JSON and try again." };
+    return { error: "Trade JSON is not valid. Fix the JSON and try again." };
   }
 
-  if (draft.screenType === "UNKNOWN") {
-    return { error: "This screenshot was not recognized as a trade." };
-  }
-
-  if (!draft.symbol) {
-    return { error: "Symbol is required before saving a trade." };
+  if (drafts.length === 0) {
+    return { error: "At least one trade JSON object is required." };
   }
 
   const collection = await prisma.collection.findFirst({
@@ -197,22 +279,79 @@ export async function saveScreenshotTradeAction(
     return { error: "Configure a sync source for this collection before saving screenshot trades." };
   }
 
+  const tradeIds: string[] = [];
+  let updatedOpenCount = 0;
+
+  for (const draft of drafts) {
+    if (draft.screenType === "UNKNOWN") {
+      return { error: "Remove UNKNOWN items before saving trades." };
+    }
+
+    if (!draft.symbol) {
+      return { error: "Every trade needs a symbol before saving." };
+    }
+
+    const result = await saveSingleScreenshotDraft({
+      collectionId: collection.id,
+      draft,
+      exchangeConnectionId: syncSource.exchangeConnectionId,
+      syncSourceId: syncSource.id,
+      userId
+    });
+
+    tradeIds.push(result.tradeId);
+
+    if (result.updatedOpenTrade) {
+      updatedOpenCount += 1;
+    }
+  }
+
+  revalidatePath(`/collections/${collection.id}`);
+  revalidatePath("/trades");
+
+  for (const tradeId of tradeIds) {
+    revalidatePath(`/trades/${tradeId}`);
+  }
+
+  return {
+    success:
+      tradeIds.length === 1
+        ? updatedOpenCount > 0
+          ? "Existing open trade updated from closed screenshot."
+          : "Trade saved."
+        : `${tradeIds.length} trades saved${updatedOpenCount > 0 ? `, including ${updatedOpenCount} open trade update${updatedOpenCount === 1 ? "" : "s"}` : ""}.`,
+    tradeIds
+  };
+}
+
+async function saveSingleScreenshotDraft({
+  collectionId,
+  draft,
+  exchangeConnectionId,
+  syncSourceId,
+  userId
+}: {
+  collectionId: string;
+  draft: ExtractedTradeDraft;
+  exchangeConnectionId: string;
+  syncSourceId: string;
+  userId: string;
+}) {
   const values = mapDraftToTradeValues({
-    collectionId: collection.id,
+    collectionId,
     draft,
-    exchangeConnectionId: syncSource.exchangeConnectionId,
-    syncSourceId: syncSource.id,
+    exchangeConnectionId,
+    syncSourceId,
     userId
   });
   const matchingOpenTrade =
     draft.screenType === "CLOSED_TRADE"
       ? await findMatchingOpenTrade({
-          collectionId: collection.id,
+          collectionId,
           draft,
           userId
         })
       : null;
-
   const trade = matchingOpenTrade
     ? await prisma.trade.update({
         where: { id: matchingOpenTrade.id },
@@ -222,7 +361,7 @@ export async function saveScreenshotTradeAction(
     : await prisma.trade.upsert({
         where: {
           collectionId_externalTradeId: {
-            collectionId: collection.id,
+            collectionId,
             externalTradeId: values.externalTradeId
           }
         },
@@ -231,18 +370,9 @@ export async function saveScreenshotTradeAction(
         select: { id: true }
       });
 
-  revalidatePath(`/collections/${collection.id}`);
-  revalidatePath("/trades");
-  revalidatePath(`/trades/${trade.id}`);
-
   return {
-    success:
-      matchingOpenTrade
-        ? "Existing open trade updated from closed screenshot."
-        : draft.screenType === "CLOSED_TRADE"
-          ? "Closed trade saved."
-          : "Open trade saved.",
-    tradeId: trade.id
+    tradeId: trade.id,
+    updatedOpenTrade: Boolean(matchingOpenTrade)
   };
 }
 
