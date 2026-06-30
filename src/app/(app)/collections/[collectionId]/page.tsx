@@ -72,11 +72,6 @@ export default async function CollectionDetailPage({
         collectionId: collection.id
       },
       include: {
-        exchangeConnection: {
-          select: {
-            accountName: true
-          }
-        },
         journal: {
           select: {
             strategy: true,
@@ -152,7 +147,7 @@ export default async function CollectionDetailPage({
             <StatCard
               label="Net result"
               tone={stats.netPnl}
-              value={formatNumber(stats.netPnl)}
+              value={formatFixed2(stats.netPnl)}
             />
             <StatCard label="Win rate" value={`${stats.winRate.toFixed(1)}%`} />
             <StatCard label="Trades" value={stats.count.toString()} />
@@ -165,9 +160,9 @@ export default async function CollectionDetailPage({
             <StatCard
               label="Average net"
               tone={stats.averageNet}
-              value={formatNumber(stats.averageNet)}
+              value={formatFixed2(stats.averageNet)}
             />
-            <StatCard label="Total fees" value={formatNumber(stats.totalFees)} />
+            <StatCard label="Total fees" value={formatFixed2(stats.totalFees)} />
           </div>
         </details>
 
@@ -262,16 +257,17 @@ export default async function CollectionDetailPage({
           />
         ) : (
           <section className="overflow-hidden rounded-xl border border-border bg-surface">
-            <div className="hidden grid-cols-[1fr_110px_120px_120px_140px] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-muted md:grid">
+            <div className="hidden grid-cols-[minmax(0,1fr)_170px_110px_90px_100px_100px] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-muted md:grid">
               <span>Trade</span>
+              <span>Trade No</span>
+              <span>Margin</span>
               <span>Status</span>
               <span>Gross</span>
               <span>Net</span>
-              <span>Closed</span>
             </div>
             {trades.map((trade) => (
               <Link
-                className="grid gap-3 border-b border-border px-4 py-3 transition hover:bg-background/70 last:border-b-0 md:grid-cols-[1fr_110px_120px_120px_140px] md:gap-4"
+                className="grid gap-3 border-b border-border px-4 py-3 transition hover:bg-background/70 last:border-b-0 md:grid-cols-[minmax(0,1fr)_170px_110px_90px_100px_100px] md:gap-4"
                 href={
                   buildTradeDetailHref({
                     returnLabel: `Back to ${collection.name}`,
@@ -284,8 +280,7 @@ export default async function CollectionDetailPage({
                 <div>
                   <p className="text-sm font-semibold">{trade.symbol}</p>
                   <p className="mt-1 text-xs text-muted">
-                    {trade.exchangeConnection.accountName} -{" "}
-                    {trade.marketType.toLowerCase()}
+                    {labelize(trade.marketType)}
                     {trade.side ? ` - ${trade.side.toLowerCase()}` : ""}
                   </p>
                   {trade.journal?.strategy || trade.journal?.grade ? (
@@ -302,15 +297,18 @@ export default async function CollectionDetailPage({
                     </p>
                   ) : null}
                 </div>
+                <p className="break-all font-mono text-xs text-muted">
+                  {formatTradeNo(trade)}
+                </p>
+                <p className="font-mono text-sm text-muted">
+                  {formatMarginLeverage(trade.rawSummary)}
+                </p>
                 <p className="text-sm text-muted">{trade.status.toLowerCase()}</p>
                 <p className={pnlClassName(trade.grossPnl)}>
-                  {formatDecimal(trade.grossPnl)}
+                  {formatDecimal2(trade.grossPnl)}
                 </p>
                 <p className={pnlClassName(trade.netPnl, true)}>
-                  {formatDecimal(trade.netPnl)}
-                </p>
-                <p className="font-mono text-xs text-muted">
-                  {formatDate(trade.closedAt ?? trade.openedAt)}
+                  {formatDecimal2(trade.netPnl)}
                 </p>
               </Link>
             ))}
@@ -446,13 +444,14 @@ function pnlTone(value: number | undefined) {
   return value > 0 ? "text-profit" : "text-loss";
 }
 
-function formatDecimal(value: DecimalValue | null) {
-  return value ? value.toString() : "-";
+function formatDecimal2(value: DecimalValue | null) {
+  return value ? formatFixed2(value.toNumber()) : "-";
 }
 
-function formatNumber(value: number) {
+function formatFixed2(value: number) {
   return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 8
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2
   }).format(value);
 }
 
@@ -462,6 +461,84 @@ function formatProfitFactor(value: number) {
   }
 
   return value.toFixed(2);
+}
+
+function formatTradeNo(trade: {
+  externalTradeId: string;
+  rawSummary: unknown;
+  sourceRecordId: string;
+}) {
+  return (
+    getExtractedText(trade.rawSummary, "orderNo") ??
+    trade.externalTradeId.split(":").at(-1) ??
+    trade.sourceRecordId
+  );
+}
+
+function formatMarginLeverage(rawSummary: unknown) {
+  const margin = getExtractedNumeric(rawSummary, "margin");
+  const leverage = getExtractedNumeric(rawSummary, "leverage");
+
+  if (margin === null && leverage === null) {
+    return "-";
+  }
+
+  if (margin !== null && leverage !== null) {
+    return `${formatCompactNumber(margin)}(${formatCompactNumber(leverage)}x)`;
+  }
+
+  if (margin !== null) {
+    return formatCompactNumber(margin);
+  }
+
+  return `${formatCompactNumber(leverage ?? 0)}x`;
+}
+
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0
+  }).format(value);
+}
+
+function getExtractedNumeric(rawSummary: unknown, key: "margin" | "leverage") {
+  const value = getExtractedValue(rawSummary, key);
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function getExtractedText(rawSummary: unknown, key: "orderNo") {
+  const value = getExtractedValue(rawSummary, key);
+
+  if (typeof value === "number" || typeof value === "string") {
+    return value.toString();
+  }
+
+  return null;
+}
+
+function getExtractedValue(rawSummary: unknown, key: "margin" | "leverage" | "orderNo") {
+  if (!rawSummary || typeof rawSummary !== "object" || Array.isArray(rawSummary)) {
+    return null;
+  }
+
+  const extracted = (rawSummary as { extracted?: unknown }).extracted;
+
+  if (!extracted || typeof extracted !== "object" || Array.isArray(extracted)) {
+    return null;
+  }
+
+  const value = (extracted as Record<string, unknown>)[key];
+  return value ?? null;
 }
 
 function formatDate(value: Date | null) {
