@@ -17,6 +17,9 @@ const profileSchema = z.object({
 const geminiCredentialSchema = z.object({
   apiKey: z.string().trim().min(10).max(500)
 });
+const openAiCredentialSchema = z.object({
+  apiKey: z.string().trim().min(10).max(500)
+});
 
 export type SettingsActionState = {
   error?: string;
@@ -111,6 +114,63 @@ export async function deleteGeminiCredentialAction() {
     where: {
       userId: session.user.id,
       provider: "GEMINI"
+    }
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function saveOpenAiCredentialAction(
+  _state: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  const parsed = openAiCredentialSchema.safeParse({
+    apiKey: formData.get("apiKey")
+  });
+
+  if (!parsed.success) {
+    return { error: "Enter a valid OpenAI API key." };
+  }
+
+  await prisma.userAiCredential.upsert({
+    where: {
+      userId_provider: {
+        userId: session.user.id,
+        provider: "OPENAI"
+      }
+    },
+    create: {
+      userId: session.user.id,
+      provider: "OPENAI",
+      apiKeyEncrypted: encryptSecret(parsed.data.apiKey, getEnv().ENCRYPTION_KEY)
+    },
+    update: {
+      apiKeyEncrypted: encryptSecret(parsed.data.apiKey, getEnv().ENCRYPTION_KEY)
+    }
+  });
+
+  revalidatePath("/settings");
+
+  return { success: "OpenAI API key saved." };
+}
+
+export async function deleteOpenAiCredentialAction() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  await prisma.userAiCredential.deleteMany({
+    where: {
+      userId: session.user.id,
+      provider: "OPENAI"
     }
   });
 

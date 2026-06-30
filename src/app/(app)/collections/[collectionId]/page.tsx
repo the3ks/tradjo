@@ -65,7 +65,7 @@ export default async function CollectionDetailPage({
     notFound();
   }
 
-  const [trades, dashboardTrades, geminiCredential] = await Promise.all([
+  const [trades, dashboardTrades, aiCredentials] = await Promise.all([
     prisma.trade.findMany({
       where: {
         userId,
@@ -104,11 +104,11 @@ export default async function CollectionDetailPage({
         netPnl: true
       }
     }),
-    prisma.userAiCredential.findUnique({
+    prisma.userAiCredential.findMany({
       where: {
-        userId_provider: {
-          userId,
-          provider: "GEMINI"
+        userId,
+        provider: {
+          in: ["GEMINI", "OPENAI"]
         }
       },
       select: { id: true }
@@ -243,7 +243,7 @@ export default async function CollectionDetailPage({
         <ScreenshotImporter
           collectionId={collection.id}
           collectionName={collection.name}
-          hasGeminiKey={Boolean(geminiCredential)}
+          hasAiExtractionKey={aiCredentials.length > 0}
         />
 
         {trades.length === 0 ? (

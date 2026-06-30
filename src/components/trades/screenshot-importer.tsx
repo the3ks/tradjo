@@ -16,12 +16,12 @@ export function ScreenshotImporter({
   collectionId,
   collectionName,
   defaultOpen = true,
-  hasGeminiKey
+  hasAiExtractionKey
 }: {
   collectionId?: string;
   collectionName?: string;
   defaultOpen?: boolean;
-  hasGeminiKey: boolean;
+  hasAiExtractionKey: boolean;
 }) {
   const [screenshotState, formAction] = useActionState(
     extractScreenshotTradeAction,
@@ -77,16 +77,16 @@ export function ScreenshotImporter({
             <input
               accept="image/jpeg,image/png,image/webp"
               className="min-h-11 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-              disabled={!hasGeminiKey}
+              disabled={!hasAiExtractionKey}
               multiple
               name="screenshots"
               required
               type="file"
             />
           </label>
-          {!hasGeminiKey ? (
+          {!hasAiExtractionKey ? (
             <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
-              Add your Gemini API key in Settings before importing screenshots.
+              Add a Gemini or OpenAI API key in Settings before importing screenshots.
             </p>
           ) : null}
           {screenshotState.error ? (
@@ -94,7 +94,7 @@ export function ScreenshotImporter({
               {screenshotState.error}
             </p>
           ) : null}
-          <SubmitButton disabled={!hasGeminiKey} />
+          <SubmitButton disabled={!hasAiExtractionKey} />
         </form>
       </details>
 

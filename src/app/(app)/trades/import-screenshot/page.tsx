@@ -7,11 +7,11 @@ import { requireUserId } from "@/lib/session";
 
 export default async function ImportScreenshotPage() {
   const userId = await requireUserId();
-  const geminiCredential = await prisma.userAiCredential.findUnique({
+  const aiCredentials = await prisma.userAiCredential.findMany({
     where: {
-      userId_provider: {
-        userId,
-        provider: "GEMINI"
+      userId,
+      provider: {
+        in: ["GEMINI", "OPENAI"]
       }
     },
     select: { id: true }
@@ -21,7 +21,7 @@ export default async function ImportScreenshotPage() {
     <>
       <PageHeader
         title="Import screenshot"
-        description="Extract a BingX Standard Futures trade from a mobile screenshot using your Gemini API key."
+        description="Extract BingX Standard Futures trades from screenshots using Gemini, with optional OpenAI fallback."
       />
       <div className="grid gap-4 px-4 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-wrap gap-3">
@@ -29,10 +29,10 @@ export default async function ImportScreenshotPage() {
             Back to trades
           </Link>
           <Link className="text-sm font-semibold text-accent" href="/settings">
-            Gemini settings
+            AI extraction settings
           </Link>
         </div>
-        <ScreenshotImporter hasGeminiKey={Boolean(geminiCredential)} />
+        <ScreenshotImporter hasAiExtractionKey={aiCredentials.length > 0} />
       </div>
     </>
   );

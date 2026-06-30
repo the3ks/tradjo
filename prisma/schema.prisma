@@ -19,6 +19,7 @@ enum ExchangeName {
 
 enum AiProvider {
   GEMINI
+  OPENAI
 }
 
 enum MarketType {

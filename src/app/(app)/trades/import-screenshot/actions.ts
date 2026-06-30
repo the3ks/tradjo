@@ -6,7 +6,9 @@ import { z } from "zod";
 
 import {
   extractTradeDraftWithGemini,
+  extractTradeDraftWithOpenAI,
   extractedTradeDraftsSchema,
+  TradeExtractionError,
   type ExtractedTradeDraft
 } from "@/lib/trade-screenshot-extraction";
 import { parseBingXTableText } from "@/lib/bingx-table-text-parser";
@@ -28,6 +30,10 @@ const parseBingXTableTextSchema = z.object({
   collectionId: z.string().trim().optional(),
   tableText: z.string().trim().min(1)
 });
+type ExtractionCredentials = {
+  geminiApiKey?: string;
+  openAiApiKey?: string;
+};
 
 export type ScreenshotImportActionState = {
   error?: string;
@@ -144,17 +150,23 @@ export async function extractScreenshotTradeAction(
     }
   }
 
-  const credential = await prisma.userAiCredential.findUnique({
+  const credentials = await prisma.userAiCredential.findMany({
     where: {
-      userId_provider: {
-        userId,
-        provider: "GEMINI"
+      userId,
+      provider: {
+        in: ["GEMINI", "OPENAI"]
       }
     }
   });
+  const geminiCredential = credentials.find(
+    (credential) => credential.provider === "GEMINI"
+  );
+  const openAiCredential = credentials.find(
+    (credential) => credential.provider === "OPENAI"
+  );
 
-  if (!credential) {
-    return { error: "Add your Gemini API key in Settings before importing screenshots." };
+  if (!geminiCredential && !openAiCredential) {
+    return { error: "Add a Gemini or OpenAI API key in Settings before importing screenshots." };
   }
 
   try {
@@ -176,16 +188,21 @@ export async function extractScreenshotTradeAction(
       return { error: "The selected trading collection was not found." };
     }
 
-    const apiKey = decryptSecret(
-      credential.apiKeyEncrypted,
-      getEnv().ENCRYPTION_KEY
-    );
+    const encryptionKey = getEnv().ENCRYPTION_KEY;
+    const extractionCredentials: ExtractionCredentials = {
+      geminiApiKey: geminiCredential
+        ? decryptSecret(geminiCredential.apiKeyEncrypted, encryptionKey)
+        : undefined,
+      openAiApiKey: openAiCredential
+        ? decryptSecret(openAiCredential.apiKeyEncrypted, encryptionKey)
+        : undefined
+    };
     const extractedDraftGroups = await Promise.all(
       files.map(async (file) => {
         const imageBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
 
-        return extractTradeDraftWithGemini({
-          apiKey,
+        return extractWithConfiguredProviders({
+          credentials: extractionCredentials,
           imageBase64,
           mimeType: file.type
         });
@@ -212,7 +229,7 @@ export async function extractScreenshotTradeAction(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return {
-        error: "Gemini returned an unexpected extraction format. Try another screenshot."
+        error: "AI extraction returned an unexpected format. Try another screenshot."
       };
     }
 
@@ -223,6 +240,85 @@ export async function extractScreenshotTradeAction(
           : "Could not extract trade details from this screenshot."
     };
   }
+}
+
+async function extractWithConfiguredProviders({
+  credentials,
+  imageBase64,
+  mimeType
+}: {
+  credentials: ExtractionCredentials;
+  imageBase64: string;
+  mimeType: string;
+}) {
+  if (credentials.geminiApiKey) {
+    try {
+      return await retryGeminiExtraction({
+        apiKey: credentials.geminiApiKey,
+        imageBase64,
+        mimeType
+      });
+    } catch (error) {
+      if (
+        !credentials.openAiApiKey ||
+        !(error instanceof TradeExtractionError) ||
+        !error.transient
+      ) {
+        throw error;
+      }
+    }
+  }
+
+  if (credentials.openAiApiKey) {
+    return extractTradeDraftWithOpenAI({
+      apiKey: credentials.openAiApiKey,
+      imageBase64,
+      mimeType
+    });
+  }
+
+  throw new Error("Add a Gemini or OpenAI API key in Settings before importing screenshots.");
+}
+
+async function retryGeminiExtraction({
+  apiKey,
+  imageBase64,
+  mimeType
+}: {
+  apiKey: string;
+  imageBase64: string;
+  mimeType: string;
+}) {
+  const delays = [0, 2_000, 6_000];
+  let lastError: unknown;
+
+  for (const delayMs of delays) {
+    if (delayMs > 0) {
+      await delay(delayMs);
+    }
+
+    try {
+      return await extractTradeDraftWithGemini({
+        apiKey,
+        imageBase64,
+        mimeType
+      });
+    } catch (error) {
+      lastError = error;
+
+      if (!(error instanceof TradeExtractionError) || !error.transient) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+function delay(milliseconds: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }
 
 export async function saveScreenshotTradeAction(

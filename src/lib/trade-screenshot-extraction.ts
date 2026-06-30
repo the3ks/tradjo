@@ -54,6 +54,48 @@ const geminiResponseSchema = z.object({
     )
     .min(1)
 });
+const openAiResponseSchema = z.object({
+  output: z.array(
+    z.object({
+      content: z
+        .array(
+          z.object({
+            text: z.string().optional()
+          })
+        )
+        .optional()
+    })
+  )
+});
+const openAiDraftResponseSchema = z
+  .object({
+    trades: extractedTradeDraftsSchema
+  })
+  .transform((value) => value.trades);
+
+export class TradeExtractionError extends Error {
+  provider: "GEMINI" | "OPENAI";
+  status: number;
+
+  constructor({
+    message,
+    provider,
+    status
+  }: {
+    message: string;
+    provider: "GEMINI" | "OPENAI";
+    status: number;
+  }) {
+    super(message);
+    this.name = "TradeExtractionError";
+    this.provider = provider;
+    this.status = status;
+  }
+
+  get transient() {
+    return this.status === 429 || this.status === 500 || this.status === 503 || this.status === 504;
+  }
+}
 
 export async function extractTradeDraftWithGemini({
   apiKey,
@@ -96,7 +138,11 @@ export async function extractTradeDraftWithGemini({
 
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(`Gemini extraction failed (${response.status}): ${message}`);
+    throw new TradeExtractionError({
+      message: `Gemini extraction failed (${response.status}): ${message}`,
+      provider: "GEMINI",
+      status: response.status
+    });
   }
 
   const payload = geminiResponseSchema.parse(await response.json());
@@ -107,6 +153,70 @@ export async function extractTradeDraftWithGemini({
   const parsedJson = JSON.parse(stripJsonFence(text)) as unknown;
 
   return extractedTradeDraftsSchema.parse(parsedJson);
+}
+
+export async function extractTradeDraftWithOpenAI({
+  apiKey,
+  imageBase64,
+  mimeType
+}: {
+  apiKey: string;
+  imageBase64: string;
+  mimeType: string;
+}) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    body: JSON.stringify({
+      input: [
+        {
+          content: [
+            {
+              text: openAiExtractionPrompt,
+              type: "input_text"
+            },
+            {
+              detail: "auto",
+              image_url: `data:${mimeType};base64,${imageBase64}`,
+              type: "input_image"
+            }
+          ],
+          role: "user"
+        }
+      ],
+      max_output_tokens: 2500,
+      model: "gpt-4.1-nano",
+      store: false,
+      text: {
+        format: {
+          type: "json_object"
+        }
+      },
+      temperature: 0
+    }),
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new TradeExtractionError({
+      message: `OpenAI extraction failed (${response.status}): ${message}`,
+      provider: "OPENAI",
+      status: response.status
+    });
+  }
+
+  const payload = openAiResponseSchema.parse(await response.json());
+  const text = payload.output
+    .flatMap((item) => item.content ?? [])
+    .map((part) => part.text ?? "")
+    .join("")
+    .trim();
+  const parsedJson = JSON.parse(stripJsonFence(text)) as unknown;
+
+  return openAiDraftResponseSchema.parse(parsedJson);
 }
 
 const extractionPrompt = `
@@ -156,6 +266,16 @@ Rules:
 - Use null for "--", missing, hidden, cropped, or unreadable values.
 - Do not infer a field that is not visible.
 - Put uncertainty into warnings and lower confidence.
+`;
+
+const openAiExtractionPrompt = `${extractionPrompt}
+
+For OpenAI JSON mode, return only this JSON object:
+{
+  "trades": [
+    // extracted trade objects matching the schema above
+  ]
+}
 `;
 
 function stripJsonFence(value: string) {

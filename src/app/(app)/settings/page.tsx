@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { PageHeader } from "@/components/page-header";
 import { GeminiCredentialForm } from "@/components/settings/gemini-credential-form";
+import { OpenAiCredentialForm } from "@/components/settings/openai-credential-form";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -14,7 +15,7 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
-  const [profile, geminiCredential] = await Promise.all([
+  const [profile, geminiCredential, openAiCredential] = await Promise.all([
     prisma.userProfile.upsert({
       where: { userId: session.user.id },
       create: {
@@ -29,6 +30,15 @@ export default async function SettingsPage() {
         userId_provider: {
           userId: session.user.id,
           provider: "GEMINI"
+        }
+      },
+      select: { id: true }
+    }),
+    prisma.userAiCredential.findUnique({
+      where: {
+        userId_provider: {
+          userId: session.user.id,
+          provider: "OPENAI"
         }
       },
       select: { id: true }
@@ -58,10 +68,11 @@ export default async function SettingsPage() {
           <section className="rounded-xl border border-border bg-surface p-5">
             <h2 className="text-base font-semibold">AI extraction</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              Add your paid Gemini API key to extract BingX Standard Futures trades from mobile screenshots.
+              Add paid AI API keys to extract BingX Standard Futures trades from mobile screenshots. Gemini is used first; OpenAI is used if Gemini is temporarily unavailable or if Gemini is not configured.
             </p>
-            <div className="mt-6">
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
               <GeminiCredentialForm hasCredential={Boolean(geminiCredential)} />
+              <OpenAiCredentialForm hasCredential={Boolean(openAiCredential)} />
             </div>
           </section>
           <section className="rounded-xl border border-border bg-surface p-5">
