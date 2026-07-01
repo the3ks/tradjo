@@ -1,14 +1,14 @@
 # Trading Journal Implementation Status
 
-Last updated: 2026-06-27
+Last updated: 2026-07-01
 
 This document is the handoff checkpoint for humans and AI assistants. Update it whenever implementation changes, verification status changes, or a known gap is resolved or introduced.
 
 ## Current Phase
 
-Phase 7: Journal enrichment and suggestions.
+Phase 10: MVP hardening and release.
 
-The app now runs manual BingX raw sync, creates normalized journal trades for configured trading collections, provides filterable trade review, and lets users enrich trades with manual journal context. Perpetual sync captures orders, fills, position history, and income/P&L rows; Standard Futures sync captures exchange-side order/trade summaries. Dashboard analytics and force resync are not implemented yet.
+The app now runs manual BingX raw sync, creates normalized journal trades for configured trading collections, provides filterable trade review, and lets users enrich trades with manual journal context. Perpetual sync captures orders, fills, position history, and income/P&L rows; Standard Futures sync captures exchange-side order/trade summaries. Dashboard metrics and force resync recovery are implemented at MVP level.
 
 ## Implemented
 
@@ -31,7 +31,13 @@ The app now runs manual BingX raw sync, creates normalized journal trades for co
   - `UI_DESIGN_GUIDELINES.md`
   - `ENGINEERING_GUIDELINES.md`
   - `IMPLEMENTATION_STATUS.md`
+  - `trading-journal-requirements.md`
+  - `docs/MVP_RELEASE_CHECKLIST.md`
   - `docs/INSTALLATION_UBUNTU_CLOUDPANEL.md`
+- `trading-journal-requirements.md` has been refreshed as the current app specification and includes the web page navigation map.
+- `trading-journal-requirements.md` and `ROADMAP.md` now specify a future Portfolio bounded context that is separate from the tactical Trading Journal, including portfolio ledger/position models, `/portfolio` navigation, and import routing.
+- Portfolio planning now treats USDT/cash balances as first-class exchange-scoped `BALANCE` positions with linked settlement ledger rows and strict no-negative balance checks by default.
+- `docs/MVP_RELEASE_CHECKLIST.md` captures environment, database, security, manual QA, import, mobile, deployment, and verification checks for MVP release hardening.
 
 ### Authentication and User Settings
 
@@ -96,6 +102,9 @@ The app now runs manual BingX raw sync, creates normalized journal trades for co
 - Exchange sync logs via `ExchangeSyncLog`.
 - Sync log UI at `/sync`.
 - Manual collection sync action.
+- Force resync action at `/sync` for a selected collection sync source and date range.
+- Force resync logs use `FORCE_RESYNC`, ignore the normal cursor for that run, and do not advance the sync source cursor after completion.
+- Force resync re-fetches raw BingX data for the selected range and allows matching normalized settled trades to be updated from refreshed raw data.
 - Sync fetch-window helper with:
   - Last 7 days
   - Yesterday in user's timezone
@@ -128,6 +137,7 @@ The app now runs manual BingX raw sync, creates normalized journal trades for co
 - Suggestion fields rank suggestions by exact match, starts-with, contains, frequency, and recency.
 - Long journal text suggestions append snippets instead of replacing existing text.
 - Trade screenshots are stored on the app server filesystem through `SCREENSHOT_STORAGE_DIR` and served through authenticated `/api/trade-screenshots/[screenshotId]`.
+- Authenticated screenshot serving returns 404 when the backing file is missing and includes `X-Content-Type-Options: nosniff`.
 - Open-only initial sync has first-pass behavior:
   - Imports open orders and positions when present.
   - If no open items exist, sets cursor from latest closed order without importing it.
@@ -138,8 +148,7 @@ The app now runs manual BingX raw sync, creates normalized journal trades for co
 
 - Spot sync.
 - Optional detailed order/fill diagnostic sync.
-- Force resync UI and behavior.
-- Dashboard metrics from real trades.
+- Dashboard charts and advanced dashboard filters.
 - Integration tests against MariaDB.
 - Browser/E2E tests.
 
@@ -235,10 +244,10 @@ Expected current manual flow after MariaDB migrations are applied:
 
 ## Next Recommended Phase
 
-Build Phase 8 dashboard and analytics:
+Continue Phase 10 MVP hardening and release:
 
-1. Create dashboard metric queries from normalized trades and journal fields.
-2. Add dashboard filters for date range, collection, symbol, exchange, market type, side, strategy, and tags.
-3. Show MVP metrics: total P&L, net P&L, win rate, trade count, average win/loss, profit factor, and best/worst trades.
-4. Add simple charts for equity/P&L over time and breakdowns by strategy, symbol, and mistake tags.
+1. Manually test registration, login, exchange setup, collection setup, sync, force resync, import, trade review, screenshot upload, and dashboard flows.
+2. Review user ownership checks on high-risk pages and server actions.
+3. Add targeted error/loading states where manual testing exposes rough edges.
+4. Add MariaDB integration tests for sync and user isolation where practical.
 5. Keep validating real BingX payload shapes through manual sync logs and raw rows.

@@ -11,6 +11,14 @@ type NormalizationResult = {
   skippedCount: number;
 };
 
+type NormalizationOptions = {
+  forceUpdateSettled?: boolean;
+  window?: {
+    from: Date;
+    to: Date;
+  };
+};
+
 type SyncSourceForTrades = Pick<
   CollectionSyncSource,
   "id" | "userId" | "collectionId" | "exchangeConnectionId" | "marketType"
@@ -20,25 +28,30 @@ type SyncSourceForTrades = Pick<
 };
 
 export async function normalizeTradesForSyncSource(
-  syncSource: SyncSourceForTrades
+  syncSource: SyncSourceForTrades,
+  options: NormalizationOptions = {}
 ): Promise<NormalizationResult> {
   if (syncSource.marketType === "PERPETUAL") {
-    return normalizePerpetualTrades(syncSource);
+    return normalizePerpetualTrades(syncSource, options);
   }
 
   if (syncSource.marketType === "FUTURES") {
-    return normalizeStandardFuturesTrades(syncSource);
+    return normalizeStandardFuturesTrades(syncSource, options);
   }
 
   return { createdCount: 0, updatedCount: 0, skippedCount: 0 };
 }
 
-async function normalizePerpetualTrades(syncSource: SyncSourceForTrades) {
+async function normalizePerpetualTrades(
+  syncSource: SyncSourceForTrades,
+  options: NormalizationOptions
+) {
   const rawPositions = await prisma.rawPosition.findMany({
     where: {
       userId: syncSource.userId,
       exchangeConnectionId: syncSource.exchangeConnectionId,
       marketType: "PERPETUAL",
+      ...dateWindowWhere(["updatedTime", "openedAt"], options.window),
       ...symbolWhere(syncSource)
     },
     orderBy: [{ updatedTime: "asc" }, { createdAt: "asc" }]
@@ -71,6 +84,7 @@ async function normalizePerpetualTrades(syncSource: SyncSourceForTrades) {
     await upsertTrade({
       result,
       syncSource,
+      forceUpdateSettled: Boolean(options.forceUpdateSettled),
       externalTradeId: `PERPETUAL:${position.exchangePositionId}`,
       sourceRecordType: "RAW_POSITION",
       sourceRecordId: position.id,
@@ -98,13 +112,17 @@ async function normalizePerpetualTrades(syncSource: SyncSourceForTrades) {
   return result;
 }
 
-async function normalizeStandardFuturesTrades(syncSource: SyncSourceForTrades) {
+async function normalizeStandardFuturesTrades(
+  syncSource: SyncSourceForTrades,
+  options: NormalizationOptions
+) {
   const rawOrders = await prisma.rawOrder.findMany({
     where: {
       userId: syncSource.userId,
       exchangeConnectionId: syncSource.exchangeConnectionId,
       marketType: "FUTURES",
       status: "FILLED",
+      ...dateWindowWhere(["updatedTime", "createdTime"], options.window),
       ...symbolWhere(syncSource)
     },
     orderBy: [{ updatedTime: "asc" }, { createdAt: "asc" }]
@@ -127,6 +145,7 @@ async function normalizeStandardFuturesTrades(syncSource: SyncSourceForTrades) {
     await upsertTrade({
       result,
       syncSource,
+      forceUpdateSettled: Boolean(options.forceUpdateSettled),
       externalTradeId: `FUTURES:${order.exchangeOrderId}`,
       sourceRecordType: "RAW_ORDER",
       sourceRecordId: order.id,
@@ -154,6 +173,7 @@ async function normalizeStandardFuturesTrades(syncSource: SyncSourceForTrades) {
 async function upsertTrade({
   result,
   syncSource,
+  forceUpdateSettled,
   externalTradeId,
   sourceRecordType,
   sourceRecordId,
@@ -175,6 +195,7 @@ async function upsertTrade({
 }: {
   result: NormalizationResult;
   syncSource: SyncSourceForTrades;
+  forceUpdateSettled: boolean;
   externalTradeId: string;
   sourceRecordType: string;
   sourceRecordId: string;
@@ -205,7 +226,11 @@ async function upsertTrade({
     select: { id: true, status: true }
   });
 
-  if (existing?.status === "SETTLED" && status !== "SETTLED") {
+  if (
+    existing?.status === "SETTLED" &&
+    status !== "SETTLED" &&
+    !forceUpdateSettled
+  ) {
     result.skippedCount += 1;
     return;
   }
@@ -276,6 +301,24 @@ function symbolWhere(syncSource: SyncSourceForTrades) {
   }
 
   return {};
+}
+
+function dateWindowWhere(
+  fields: string[],
+  window: NormalizationOptions["window"]
+) {
+  if (!window) {
+    return {};
+  }
+
+  return {
+    OR: fields.map((field) => ({
+      [field]: {
+        gte: window.from,
+        lte: window.to
+      }
+    }))
+  };
 }
 
 function groupBySymbol<T extends { symbol: string | null }>(rows: T[]) {

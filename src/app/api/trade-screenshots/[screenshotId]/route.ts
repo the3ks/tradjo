@@ -27,12 +27,22 @@ export async function GET(_request: Request, { params }: ScreenshotRouteProps) {
     return new NextResponse("Not found", { status: 404 });
   }
 
-  const bytes = await readFile(screenshot.storagePath);
+  let bytes: Buffer;
 
-  return new NextResponse(bytes, {
+  try {
+    bytes = await readFile(screenshot.storagePath);
+  } catch {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
+  const body = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(body).set(bytes);
+
+  return new NextResponse(body, {
     headers: {
       "Cache-Control": "private, max-age=300",
-      "Content-Type": screenshot.mimeType
+      "Content-Type": screenshot.mimeType,
+      "X-Content-Type-Options": "nosniff"
     }
   });
 }

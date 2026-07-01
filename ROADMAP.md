@@ -1,6 +1,6 @@
 # Trading Journal Roadmap
 
-This roadmap turns `trading-journal-requirements.md` into an implementation plan for a multi-user, mobile-friendly trading journal. The MVP prioritizes secure BingX sync, raw exchange data preservation, normalized trade journaling, and practical analytics.
+This roadmap turns `trading-journal-requirements.md` into an implementation plan for a multi-user, mobile-friendly trading journal with a future separate portfolio management domain. The current MVP prioritizes secure BingX sync, raw exchange data preservation, normalized trade journaling, and practical analytics. Portfolio work must be implemented as a separate bounded context rather than as extra fields on journal trades.
 
 Companion project guidance:
 
@@ -11,10 +11,28 @@ Companion project guidance:
 
 - Build personal-use workflows first, while enforcing multi-user isolation from day one.
 - Keep exchange sync, collection organization, and journal records as separate concepts.
+- Keep tactical Trading Journal data separate from strategic Portfolio data.
+- Treat `Trade` and `TradeJournal` as journal-only models.
+- Treat portfolio holdings as ledger-driven positions, not as collection trades.
 - Preserve raw exchange payloads so trades can be debugged and rebuilt later.
 - Make all MVP sync manual; avoid background jobs until the core data model is proven.
 - Design every page for mobile browsers, not as a desktop layout squeezed onto phones.
 - Treat exchange API secrets as high-risk data: encrypt at rest and never reveal after save.
+
+## Bounded Context Direction
+
+The app has two engines that share auth, user settings, encryption utilities, and the app shell:
+
+- Trading Journal: evaluates round-trip trade decisions, strategy, mistakes, grade, and net result.
+- Portfolio: tracks long-term holdings, cash, allocation, cost basis, unrealized P&L, and exposure.
+
+Portfolio must use new ledger-based tables:
+
+- `PortfolioPosition`
+- `PortfolioLedger`
+- enums for asset class, position type, and ledger action
+
+Cash and stablecoins should be tracked as first-class portfolio assets so net worth and allocation are accurate. Trading Journal should still avoid account balance tracking unless a future feature explicitly needs it. Portfolio should support both general balances and exchange-specific balances such as `USDT (General)`, `USDT (Binance)`, and `USDT (BingX)`.
 
 ## Recommended Stack Decision
 
@@ -68,7 +86,8 @@ Goal: establish the application skeleton, conventions, and local development wor
 
 - App starts locally without manual code changes.
 - Database migrations can be created and applied.
-- A mobile viewport shows usable primary navigation: Dashboard, Collections, Trades, Sync, Settings.
+- A mobile viewport shows usable primary navigation for current journal routes: Dashboard, Collections, Trades, Sync, Settings.
+- When Portfolio is implemented, `/portfolio` is added as its own primary navigation item rather than being folded into Collections or Trades.
 
 ## Phase 1: Authentication and User Settings
 
@@ -302,7 +321,7 @@ Goal: let users add manual journal context to synced trades efficiently.
   - Add an expandable folder/trading collection tree in the desktop sidebar.
   - Add a mobile collection drawer from the app header.
   - Allow trading collections to be pinned for a top quick-access section.
-  - Link trading collection shortcuts to the trade list filtered by collection.
+  - Link trading collection shortcuts to dedicated collection pages.
 
 ### Data Model
 
@@ -326,6 +345,33 @@ Goal: let users add manual journal context to synced trades efficiently.
 - Long text fields offer snippets without aggressively replacing user text.
 - Journal save is comfortable on mobile, with a sticky save action.
 - Users can pin trading collections and access them from desktop and mobile quick-access areas without first opening the collection management page.
+
+## Phase 7.5: Screenshot/Table Import for Journal Trades
+
+Goal: support assisted BingX Standard Futures journal trade ingestion without turning the journal into a portfolio ledger.
+
+### Scope
+
+- Add screenshot upload extraction for BingX Standard Futures trades.
+- Add pasted BingX table text parsing.
+- Add raw JSON edit/save flow for extracted trade drafts.
+- Route collection-scoped imports from `/collections/[collectionId]`.
+- Keep imported records as journal `Trade` records.
+- Add AI extraction credentials in Settings.
+
+### Deliverables
+
+- `/trades/import-screenshot`.
+- Collection-scoped import panel on `/collections/[collectionId]`.
+- Gemini/OpenAI credential forms.
+- Draft review before save.
+
+### Acceptance Criteria
+
+- A user can import one or more Standard Futures trades into a trading collection.
+- Existing trade matches are shown before save.
+- AI credentials are encrypted and never shown after save.
+- Import UI is explicit that the target is the Trading Journal.
 
 ## Phase 8: Dashboard and Analytics
 
@@ -415,6 +461,142 @@ Goal: make the MVP reliable enough for personal and friend usage.
 - Exchange secrets are encrypted and excluded from logs.
 - A new user can connect BingX, configure a trading collection, sync trades, add journal notes, upload screenshots, and review dashboard metrics.
 
+## Phase 11: Portfolio Domain Foundation
+
+Goal: introduce strategic portfolio tracking as a separate bounded context.
+
+### Scope
+
+- Add portfolio enums:
+  - Asset class: cash, crypto, stock, forex, commodity.
+  - Position type: balance, spot, futures.
+  - Ledger action: deposit, withdrawal, buy, sell, fee, funding, dividend, transfer in, transfer out.
+- Add `PortfolioPosition`.
+- Add `PortfolioLedger`.
+- Add optional exchange identifier on positions.
+- Add linked settlement ledger support.
+- Add weighted-average cost basis calculation.
+- Add cash/stablecoins as first-class balance positions.
+- Add strict no-negative-balance checks for simple cash balance settlement.
+- Add user-scoped portfolio service functions.
+- Keep all portfolio queries separate from journal trade queries.
+
+### Data Model
+
+- `portfolio_positions`
+- `portfolio_ledgers`
+
+### Deliverables
+
+- Prisma migration for portfolio tables.
+- Portfolio ledger calculation service.
+- Unit tests for quantity, cost basis, realized P&L, and cash actions.
+- Unit tests for linked buy/sell settlement against USDT balances.
+- Unit tests that block negative `BALANCE` positions by default.
+
+### Acceptance Criteria
+
+- Portfolio positions are derived from immutable ledger entries.
+- Cash deposits/withdrawals affect portfolio cash positions.
+- General and exchange-specific USDT positions can coexist for one user.
+- Asset buys can deduct linked USDT settlement ledgers.
+- Asset sells can add linked USDT settlement ledgers.
+- Simple cash balances cannot go negative unless a future explicit margin mode is added.
+- Journal `Trade` rows are not required to create portfolio positions.
+- User A cannot access User B portfolio rows.
+
+## Phase 12: Portfolio Workspace and Ledger UI
+
+Goal: create dedicated portfolio pages for strategic exposure review.
+
+### Scope
+
+- Add `/portfolio`.
+- Add `/portfolio/ledger`.
+- Add primary navigation item for Portfolio.
+- Show open/current positions table.
+- Show asset-class allocation.
+- Show cash allocation.
+- Add Cash & Equivalents section with general and exchange-specific USDT rows.
+- Add quick Deposit and Withdraw actions for cash/equivalent balances.
+- Add manual entry Settlement section:
+  - Toggle: Settle with Portfolio Cash.
+  - USDT/cash source dropdown with balances.
+  - Editable settlement amount defaulted from quantity times price.
+- Show unrealized and realized P&L where available.
+- Show raw ledger history with filters.
+
+### Deliverables
+
+- Portfolio dashboard/workspace page.
+- Portfolio ledger page.
+- Portfolio cash balance controls.
+- Mobile-friendly positions and ledger layouts.
+
+### Acceptance Criteria
+
+- `/portfolio` uses position/holding/allocation language, not journal trade language.
+- USDT balances are visible as cash/equivalent holdings, including exchange-specific rows.
+- Manual asset buys/sells can create linked cash settlement rows.
+- `/portfolio/ledger` shows immutable transaction history.
+- Portfolio navigation is clearly separate from Collections and Trades.
+- Mobile portfolio views avoid wide tables.
+
+## Phase 13: Portfolio Import Routing
+
+Goal: route CSV/PDF/OCR imports into either the Trading Journal or Portfolio Ledger intentionally.
+
+### Scope
+
+- Add import target selector:
+  - Trading Journal (Tactical Trades)
+  - Portfolio Ledger (Long-Term Holdings)
+- Add CSV import path for portfolio ledgers.
+- Add PDF/OCR import path for portfolio ledgers where feasible.
+- Add optional batch settlement setting: settle imported buys/sells against selected USDT source.
+- Reuse AI extraction infrastructure where appropriate.
+- Add server-side routing validation so rows cannot silently land in the wrong domain.
+
+### Deliverables
+
+- Portfolio import UI.
+- Portfolio import parser service.
+- Draft-review screen before save.
+- Settlement mapping review before save.
+- Ledger recalculation after import save.
+
+### Acceptance Criteria
+
+- Journal imports create/update `Trade` rows only.
+- Portfolio imports create `PortfolioLedger` rows and recalculate `PortfolioPosition`.
+- Portfolio imports can deduct/add selected USDT balance through linked settlement ledgers.
+- The selected target domain is visible before parsing and before saving.
+- Import failures do not partially update position state.
+
+## Phase 14: Combined Dashboard Integration
+
+Goal: make `/dashboard` a high-level summary of both bounded contexts while keeping details separate.
+
+### Scope
+
+- Add portfolio summary cards after portfolio data exists.
+- Show total portfolio equity.
+- Show cash allocation.
+- Show tactical journal metrics separately from portfolio metrics.
+- Link journal sections to `/trades` and collection pages.
+- Link portfolio sections to `/portfolio`.
+
+### Deliverables
+
+- Combined dashboard summary.
+- Clear visual separation between Journal and Portfolio cards.
+
+### Acceptance Criteria
+
+- Dashboard does not merge tactical journal trades into portfolio holdings.
+- Portfolio equity and journal performance are visibly distinct.
+- Empty states are clear when either domain has no data.
+
 ## Cross-Cutting Workstreams
 
 ### Engineering Discipline
@@ -465,17 +647,19 @@ Goal: make the MVP reliable enough for personal and friend usage.
 8. Dashboard summarizes filtered performance.
 9. Force resync supports recovery.
 10. Mobile, security, and deployment hardening complete.
+11. Portfolio ledger and positions are implemented as a separate strategic domain.
+12. Portfolio import routing supports long-term holdings without polluting journal trades.
 
 ## Out of Scope for MVP
 
-- Manual trade/order creation from scratch.
+- Manual tactical trade/order creation from scratch.
 - Scheduled background sync.
 - Exchanges beyond BingX.
 - AI weekly review or AI trade review.
 - Strategy library and playbook templates.
 - Public strategy sharing or community features.
-- CSV import/export.
-- PWA install support.
+- Portfolio tax-lot accounting beyond weighted average cost.
+- Live market pricing for portfolio valuation before the portfolio ledger is stable.
 
 ## Key Risks and Mitigations
 
@@ -487,11 +671,15 @@ Goal: make the MVP reliable enough for personal and friend usage.
 | User isolation bug | Serious privacy/security issue | Centralize ownership checks and test direct access attempts |
 | Secret leakage | Severe security issue | Encrypt at rest, never return secrets, redact logs |
 | Mobile forms become cumbersome | Journal usage drops | Use chips, sticky save, compact tabs/accordions, and large touch targets |
+| Portfolio and Journal concepts blur together | Users lose trust in both metrics | Keep separate tables, routes, terminology, and import targets |
+| Cash is excluded from Portfolio | Net worth and allocation become misleading | Track cash/stablecoins as `CASH` asset class and `BALANCE` position type in Portfolio |
+| USDT settlement is not linked to asset trades | Cash balances drift from holdings | Create paired linked ledger rows for asset buy/sell settlements |
+| Negative cash appears accidentally | Portfolio equity becomes confusing | Enforce strict no-negative balance checks by default; add explicit margin mode later if needed |
 
 ## Immediate Next Steps
 
-1. Initialize the Next.js, Prisma, Tailwind, and Auth.js project foundation.
-2. Draft the first Prisma schema around users, profiles, exchange connections, collections, and sync sources.
-3. Build the responsive shell and protected route structure.
-4. Implement authentication and user settings before any exchange data work.
-5. Add BingX exchange connection storage, encryption, and connection testing.
+1. Stabilize the current Trading Journal MVP flows and manual testing.
+2. Finish force resync/recovery tooling for journal sync.
+3. Keep dashboard improvements journal-focused until Portfolio tables exist.
+4. Start Portfolio with schema and ledger calculation tests, not UI first.
+5. Add `/portfolio` navigation only when at least read-only portfolio positions can be displayed.

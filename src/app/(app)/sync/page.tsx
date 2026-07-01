@@ -1,4 +1,7 @@
-import { runCollectionSyncAction } from "@/app/(app)/sync/actions";
+import {
+  runCollectionSyncAction,
+  runForceResyncAction
+} from "@/app/(app)/sync/actions";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
@@ -16,6 +19,7 @@ type SyncSourceListItem = {
 
 type SyncLogListItem = {
   id: string;
+  syncType: "INITIAL" | "INCREMENTAL" | "RECENT_REFRESH" | "FORCE_RESYNC";
   status: "RUNNING" | "SUCCESS" | "FAILED";
   startedAt: Date;
   fetchedCount: number;
@@ -114,12 +118,54 @@ export default async function SyncPage() {
                               .join(", ") || source.symbolFilterMode.toLowerCase()}
                       </p>
                     </div>
-                    <form action={runCollectionSyncAction}>
-                      <input name="syncSourceId" type="hidden" value={source.id} />
-                      <button className="min-h-10 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-foreground transition active:translate-y-px">
-                        Sync trades
-                      </button>
-                    </form>
+                    <div className="grid gap-3 md:min-w-80">
+                      <form action={runCollectionSyncAction}>
+                        <input
+                          name="syncSourceId"
+                          type="hidden"
+                          value={source.id}
+                        />
+                        <button className="min-h-10 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-foreground transition active:translate-y-px">
+                          Sync trades
+                        </button>
+                      </form>
+                      <form
+                        action={runForceResyncAction}
+                        className="grid gap-2 rounded-lg border border-border bg-background p-3"
+                      >
+                        <input
+                          name="syncSourceId"
+                          type="hidden"
+                          value={source.id}
+                        />
+                        <p className="text-xs font-semibold uppercase text-muted">
+                          Force resync
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                          <label className="grid gap-1 text-xs font-medium text-muted">
+                            From
+                            <input
+                              className="min-h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground"
+                              name="from"
+                              required
+                              type="date"
+                            />
+                          </label>
+                          <label className="grid gap-1 text-xs font-medium text-muted">
+                            To
+                            <input
+                              className="min-h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground"
+                              name="to"
+                              required
+                              type="date"
+                            />
+                          </label>
+                          <button className="min-h-10 self-end rounded-lg border border-warning/50 px-3 text-sm font-semibold text-warning transition hover:bg-warning/10 active:translate-y-px">
+                            Run
+                          </button>
+                        </div>
+                      </form>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -136,15 +182,16 @@ export default async function SyncPage() {
             />
           ) : (
             <div className="overflow-hidden rounded-xl border border-border bg-surface">
-              <div className="hidden grid-cols-[1fr_160px_140px_120px] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-muted md:grid">
+              <div className="hidden grid-cols-[1fr_140px_140px_120px_120px] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-muted md:grid">
                 <span>Source</span>
+                <span>Type</span>
                 <span>Status</span>
                 <span>Started</span>
                 <span>Fetched</span>
               </div>
               {syncLogs.map((log) => (
                 <article
-                  className="grid gap-2 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[1fr_160px_140px_120px] md:gap-4"
+                  className="grid gap-2 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[1fr_140px_140px_120px_120px] md:gap-4"
                   key={log.id}
                 >
                   <div>
@@ -156,6 +203,7 @@ export default async function SyncPage() {
                       <p className="mt-1 text-xs text-danger">{log.errorMessage}</p>
                     ) : null}
                   </div>
+                  <p className="text-sm text-muted">{labelize(log.syncType)}</p>
                   <p className="text-sm text-muted">{log.status.toLowerCase()}</p>
                   <p className="font-mono text-xs text-muted">
                     {log.startedAt.toISOString()}
@@ -169,4 +217,12 @@ export default async function SyncPage() {
       </div>
     </>
   );
+}
+
+function labelize(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join(" ");
 }

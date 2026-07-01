@@ -29,7 +29,17 @@ type SyncSourceWithConnection = CollectionSyncSource & {
   };
 };
 
-export async function runBingXCollectionSync(syncSource: SyncSourceWithConnection) {
+type CollectionSyncOptions = {
+  forceWindow?: {
+    from: Date;
+    to: Date;
+  };
+};
+
+export async function runBingXCollectionSync(
+  syncSource: SyncSourceWithConnection,
+  options: CollectionSyncOptions = {}
+) {
   if (!isSupportedMarketType(syncSource.marketType)) {
     throw new Error(
       "Only BingX perpetual and Standard Futures sync are implemented in this phase."
@@ -49,16 +59,22 @@ export async function runBingXCollectionSync(syncSource: SyncSourceWithConnectio
     )
   });
   const now = new Date();
-  const fetchWindow = determineFetchWindow({
-    lastEventTime: syncSource.lastEventTime,
-    initialSync: {
-      mode: syncSource.initialSyncMode,
-      now,
-      timezone: syncSource.user.profile?.timezone ?? "UTC",
-      customStart: syncSource.initialSyncStartTime,
-      customEnd: syncSource.initialSyncEndTime
-    }
-  });
+  const fetchWindow = options.forceWindow
+    ? {
+        kind: "time-range" as const,
+        from: options.forceWindow.from,
+        to: options.forceWindow.to
+      }
+    : determineFetchWindow({
+        lastEventTime: syncSource.lastEventTime,
+        initialSync: {
+          mode: syncSource.initialSyncMode,
+          now,
+          timezone: syncSource.user.profile?.timezone ?? "UTC",
+          customStart: syncSource.initialSyncStartTime,
+          customEnd: syncSource.initialSyncEndTime
+        }
+      });
 
   if (fetchWindow.kind === "open-only") {
     return runOpenOnlySync({ client, syncSource });
@@ -123,14 +139,19 @@ export async function runBingXCollectionSync(syncSource: SyncSourceWithConnectio
     incomeResult.latestEventTime
   );
 
-  await prisma.collectionSyncSource.update({
-    where: { id: syncSource.id },
-    data: {
-      initialSyncCompleted: true,
-      lastEventTime: latestEventTime ?? syncSource.lastEventTime ?? fetchWindow.to
-    }
+  if (!options.forceWindow) {
+    await prisma.collectionSyncSource.update({
+      where: { id: syncSource.id },
+      data: {
+        initialSyncCompleted: true,
+        lastEventTime: latestEventTime ?? syncSource.lastEventTime ?? fetchWindow.to
+      }
+    });
+  }
+  const tradeResult = await normalizeTradesForSyncSource(syncSource, {
+    forceUpdateSettled: Boolean(options.forceWindow),
+    window: options.forceWindow
   });
-  const tradeResult = await normalizeTradesForSyncSource(syncSource);
 
   return {
     fetchedCount:
