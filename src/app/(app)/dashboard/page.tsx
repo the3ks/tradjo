@@ -74,14 +74,14 @@ export default async function DashboardPage() {
         description="Review performance across all trading collections."
       />
       <div className="grid gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <StatCard label="Net P&L" tone={stats.netPnl} value={formatNumber(stats.netPnl)} />
           <StatCard label="Win rate" value={`${stats.winRate.toFixed(1)}%`} />
           <StatCard label="Trades" value={stats.count.toString()} />
           <StatCard label="Profit factor" value={formatProfitFactor(stats.profitFactor)} />
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <StatCard label="Closed trades" value={stats.closedCount.toString()} />
           <StatCard label="Open trades" value={stats.openCount.toString()} />
           <StatCard label="Average net" tone={stats.averageNet} value={formatNumber(stats.averageNet)} />
@@ -99,7 +99,7 @@ export default async function DashboardPage() {
               <div className="border-b border-border px-4 py-3">
                 <h2 className="text-base font-semibold">Collections</h2>
               </div>
-              <div className="hidden grid-cols-[1fr_90px_100px_120px] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-muted md:grid">
+              <div className="grid grid-cols-[minmax(0,1fr)_54px_68px_78px] gap-2 border-b border-border px-3 py-3 text-xs font-medium text-muted md:grid-cols-[1fr_90px_100px_120px] md:gap-4 md:px-4">
                 <span>Collection</span>
                 <span>Trades</span>
                 <span>Win rate</span>
@@ -107,13 +107,13 @@ export default async function DashboardPage() {
               </div>
               {collectionRows.map((collection) => (
                 <Link
-                  className="grid gap-2 border-b border-border px-4 py-3 transition hover:bg-background/70 last:border-b-0 md:grid-cols-[1fr_90px_100px_120px] md:gap-4"
+                  className="grid grid-cols-[minmax(0,1fr)_54px_68px_78px] gap-2 border-b border-border px-3 py-3 transition hover:bg-background/70 last:border-b-0 md:grid-cols-[1fr_90px_100px_120px] md:gap-4 md:px-4"
                   href={`/collections/${collection.id}` as Route}
                   key={collection.id}
                 >
-                  <p className="text-sm font-semibold">{collection.name}</p>
-                  <p className="font-mono text-sm text-muted">{collection.count}</p>
-                  <p className="font-mono text-sm text-muted">
+                  <p className="truncate text-sm font-semibold">{collection.name}</p>
+                  <p className="font-mono text-xs text-muted md:text-sm">{collection.count}</p>
+                  <p className="font-mono text-xs text-muted md:text-sm">
                     {collection.winRate.toFixed(1)}%
                   </p>
                   <p className={pnlClassName(collection.netPnl, true)}>

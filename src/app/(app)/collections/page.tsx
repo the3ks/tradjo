@@ -6,6 +6,7 @@ import {
   setCollectionPinnedAction
 } from "@/app/(app)/collections/actions";
 import { CollectionForm } from "@/components/collections/collection-form";
+import { CollectionNameEditor } from "@/components/collections/collection-name-editor";
 import { SyncSourceForm } from "@/components/collections/sync-source-form";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -133,7 +134,10 @@ export default async function CollectionsPage() {
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-medium">{collection.name}</h3>
+                          <CollectionNameEditor
+                            collectionId={collection.id}
+                            name={collection.name}
+                          />
                           <span className="rounded-full border border-border px-2 py-1 text-xs text-muted">
                             {collection.type === "FOLDER" ? "Folder" : "Trading"}
                           </span>

@@ -103,7 +103,22 @@ export default async function TradeDetailPage({
         </Link>
 
         <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface p-5">
-          <div className="grid min-w-0 gap-4 md:grid-cols-4">
+          <div className="mb-5">
+            <h2 className="text-base font-semibold">Journal</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+              Add the trading context you care about: why you opened it, what happened, and what to repeat or avoid.
+            </p>
+          </div>
+          <JournalEditor
+            allTags={allTags}
+            journal={journal}
+            screenshots={trade.screenshots}
+            tradeId={trade.id}
+          />
+        </section>
+
+        <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface p-5">
+          <div className="grid min-w-0 grid-cols-3 gap-3 md:grid-cols-4 md:gap-4">
             <Metric label="Status" value={labelize(trade.status)} />
             <Metric label="Side" value={trade.side ?? "-"} />
             <Metric label="Quantity" value={formatDecimal(trade.quantity)} />
@@ -123,7 +138,7 @@ export default async function TradeDetailPage({
 
         <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface p-5">
           <h2 className="text-base font-semibold">Result</h2>
-          <div className="mt-4 grid min-w-0 gap-4 md:grid-cols-3">
+          <div className="mt-4 grid min-w-0 grid-cols-3 gap-3 md:gap-4">
             <Metric label="Gross result" value={formatDecimal(trade.grossPnl)} />
             <Metric label="Trading fees" value={formatDecimal(trade.tradingFee)} />
             <Metric label="Funding fees" value={formatDecimal(trade.fundingFee)} />
@@ -140,21 +155,6 @@ export default async function TradeDetailPage({
             <Metric label="Closed" value={formatDate(trade.closedAt)} />
             <Metric label="Settled" value={formatDate(trade.settledAt)} />
           </div>
-        </section>
-
-        <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface p-5">
-          <div className="mb-5">
-            <h2 className="text-base font-semibold">Journal</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              Add the trading context you care about: why you opened it, what happened, and what to repeat or avoid.
-            </p>
-          </div>
-          <JournalEditor
-            allTags={allTags}
-            journal={journal}
-            screenshots={trade.screenshots}
-            tradeId={trade.id}
-          />
         </section>
 
         <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface p-5">

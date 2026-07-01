@@ -16,6 +16,10 @@ const createCollectionSchema = z.object({
   type: z.enum(["FOLDER", "TRADING"]),
   parentId: z.string().trim().optional()
 });
+const updateCollectionNameSchema = z.object({
+  collectionId: z.string().trim().min(1),
+  name: z.string().trim().min(1).max(120)
+});
 
 const syncSourceSchema = z.object({
   collectionId: z.string().min(1),
@@ -117,10 +121,45 @@ export async function deleteCollectionAction(formData: FormData) {
   revalidatePath("/collections");
 }
 
+export async function updateCollectionNameAction(formData: FormData) {
+  const userId = await requireUserId();
+  const parsed = updateCollectionNameSchema.safeParse({
+    collectionId: formData.get("collectionId"),
+    name: formData.get("name")
+  });
+
+  if (!parsed.success) {
+    return;
+  }
+
+  const collection = await prisma.collection.findFirst({
+    where: {
+      id: parsed.data.collectionId,
+      userId
+    },
+    select: { id: true }
+  });
+
+  if (!collection) {
+    return;
+  }
+
+  await prisma.collection.update({
+    where: { id: collection.id },
+    data: { name: parsed.data.name }
+  });
+
+  revalidatePath("/collections");
+  revalidatePath(`/collections/${collection.id}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/trades");
+}
+
 export async function setCollectionPinnedAction(formData: FormData) {
   const userId = await requireUserId();
   const collectionId = z.string().min(1).parse(formData.get("collectionId"));
-  const isPinned = z.coerce.boolean().parse(formData.get("isPinned"));
+  const isPinned =
+    z.enum(["true", "false"]).parse(formData.get("isPinned")) === "true";
 
   const collection = await prisma.collection.findFirst({
     where: {

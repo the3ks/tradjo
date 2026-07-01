@@ -110,15 +110,15 @@ export function PinnedCollectionLinks({
         return (
           <Link
             className={cn(
-              "flex min-h-9 items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-border hover:bg-surface-elevated hover:text-foreground active:translate-y-px",
+              "flex min-h-9 min-w-0 items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-border hover:bg-surface-elevated hover:text-foreground active:translate-y-px",
               isActive && "border-border bg-surface-elevated text-foreground"
             )}
             href={href}
             key={collection.id}
             onClick={onNavigate}
           >
-            <ListMagnifyingGlass aria-hidden="true" size={16} />
-            <span className="truncate">{collection.name}</span>
+            <ListMagnifyingGlass aria-hidden="true" className="shrink-0" size={16} />
+            <span className="min-w-0 truncate">{collection.name}</span>
           </Link>
         );
       })}
@@ -168,39 +168,39 @@ function CollectionNode({
     return (
       <Link
         className={cn(
-          "flex min-h-9 items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-border hover:bg-surface-elevated hover:text-foreground active:translate-y-px",
+          "flex min-h-9 min-w-0 items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-muted transition hover:border-border hover:bg-surface-elevated hover:text-foreground active:translate-y-px",
           isActive && "border-border bg-surface-elevated text-foreground"
         )}
         href={href}
         onClick={onNavigate}
       >
-        <ListMagnifyingGlass aria-hidden="true" size={16} />
-        <span className="truncate">{node.name}</span>
+        <ListMagnifyingGlass aria-hidden="true" className="shrink-0" size={16} />
+        <span className="min-w-0 truncate">{node.name}</span>
       </Link>
     );
   }
 
   return (
-    <details className="group" open>
-      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:bg-surface-elevated hover:text-foreground">
+    <details className="group min-w-0" open>
+      <summary className="flex min-h-9 min-w-0 cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:bg-surface-elevated hover:text-foreground">
         <CaretDown
           aria-hidden="true"
-          className="transition group-open:rotate-0 -rotate-90"
+          className="shrink-0 transition group-open:rotate-0 -rotate-90"
           size={14}
         />
         <Folder
           aria-hidden="true"
-          className="group-open:hidden"
+          className="shrink-0 group-open:hidden"
           size={16}
         />
         <FolderOpen
           aria-hidden="true"
-          className="hidden group-open:block"
+          className="hidden shrink-0 group-open:block"
           size={16}
         />
-        <span className="truncate">{node.name}</span>
+        <span className="min-w-0 truncate">{node.name}</span>
       </summary>
-      <div className="ml-5 mt-1 grid gap-1 border-l border-border pl-2">
+      <div className="ml-4 mt-1 grid min-w-0 gap-1 border-l border-border pl-2">
         {node.children.length > 0 ? (
           node.children.map((child) => (
             <CollectionNode
@@ -211,9 +211,9 @@ function CollectionNode({
             />
           ))
         ) : (
-          <div className="flex min-h-8 items-center gap-2 px-3 text-xs text-muted">
-            <FolderSimpleDashed aria-hidden="true" size={14} />
-            <span>No trading collections</span>
+          <div className="flex min-h-8 min-w-0 items-center gap-2 px-3 text-xs text-muted">
+            <FolderSimpleDashed aria-hidden="true" className="shrink-0" size={14} />
+            <span className="min-w-0 truncate">No trading collections</span>
           </div>
         )}
       </div>

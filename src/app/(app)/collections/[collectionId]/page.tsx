@@ -143,7 +143,7 @@ export default async function CollectionDetailPage({
           <summary className="cursor-pointer px-5 py-4 text-base font-semibold transition hover:bg-background/70">
             Trade dashboard
           </summary>
-          <div className="grid gap-3 border-t border-border p-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-3 gap-2 border-t border-border p-4 sm:gap-3 sm:p-5 xl:grid-cols-4">
             <StatCard
               label="Net result"
               tone={stats.netPnl}
@@ -165,6 +165,75 @@ export default async function CollectionDetailPage({
             <StatCard label="Total fees" value={formatFixed2(stats.totalFees)} />
           </div>
         </details>
+
+        {trades.length === 0 ? (
+          <EmptyState
+            title="No trades in this collection"
+            description={
+              activeSyncSource
+                ? "Click Sync trades to fetch exchange trades for this collection."
+                : "Configure a sync source before fetching trades for this collection."
+            }
+          />
+        ) : (
+          <section className="overflow-hidden rounded-xl border border-border bg-surface">
+            <div className="hidden grid-cols-[minmax(0,1fr)_170px_110px_90px_100px_100px] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-muted md:grid">
+              <span>Trade</span>
+              <span>Trade No</span>
+              <span>Margin</span>
+              <span>Status</span>
+              <span>Gross</span>
+              <span>Net</span>
+            </div>
+            {trades.map((trade) => (
+              <Link
+                className="grid grid-cols-2 gap-3 border-b border-border px-4 py-3 transition hover:bg-background/70 last:border-b-0 md:grid-cols-[minmax(0,1fr)_170px_110px_90px_100px_100px] md:gap-4"
+                href={
+                  buildTradeDetailHref({
+                    returnLabel: `Back to ${collection.name}`,
+                    returnTo: `/collections/${collection.id}`,
+                    tradeId: trade.id
+                  }) as Route
+                }
+                key={trade.id}
+              >
+                <div>
+                  <p className="text-sm font-semibold">{trade.symbol}</p>
+                  <p className="mt-1 text-xs text-muted">
+                    {labelize(trade.marketType)}
+                    {trade.side ? ` - ${trade.side.toLowerCase()}` : ""}
+                  </p>
+                  {trade.journal?.strategy || trade.journal?.grade ? (
+                    <p className="mt-1 text-xs text-muted">
+                      {trade.journal.strategy ?? "No strategy"} -{" "}
+                      {trade.journal.grade ?? "No grade"}
+                    </p>
+                  ) : null}
+                  {trade.journal?.mistakeTags.length ? (
+                    <p className="mt-1 text-xs text-muted">
+                      {trade.journal.mistakeTags
+                        .map((tag) => tag.mistakeTag.name)
+                        .join(", ")}
+                    </p>
+                  ) : null}
+                </div>
+                <p className="break-all font-mono text-xs text-muted">
+                  {formatTradeNo(trade)}
+                </p>
+                <p className="font-mono text-sm text-muted">
+                  {formatMarginLeverage(trade.rawSummary)}
+                </p>
+                <p className="text-sm text-muted">{trade.status.toLowerCase()}</p>
+                <p className={pnlClassName(trade.grossPnl)}>
+                  {formatDecimal2(trade.grossPnl)}
+                </p>
+                <p className={pnlClassName(trade.netPnl, true)}>
+                  {formatDecimal2(trade.netPnl)}
+                </p>
+              </Link>
+            ))}
+          </section>
+        )}
 
         <details className="overflow-hidden rounded-xl border border-border bg-surface">
           <summary className="cursor-pointer px-5 py-4 text-base font-semibold transition hover:bg-background/70">
@@ -245,75 +314,6 @@ export default async function CollectionDetailPage({
           collectionName={collection.name}
           hasAiExtractionKey={aiCredentials.length > 0}
         />
-
-        {trades.length === 0 ? (
-          <EmptyState
-            title="No trades in this collection"
-            description={
-              activeSyncSource
-                ? "Click Sync trades to fetch exchange trades for this collection."
-                : "Configure a sync source before fetching trades for this collection."
-            }
-          />
-        ) : (
-          <section className="overflow-hidden rounded-xl border border-border bg-surface">
-            <div className="hidden grid-cols-[minmax(0,1fr)_170px_110px_90px_100px_100px] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-muted md:grid">
-              <span>Trade</span>
-              <span>Trade No</span>
-              <span>Margin</span>
-              <span>Status</span>
-              <span>Gross</span>
-              <span>Net</span>
-            </div>
-            {trades.map((trade) => (
-              <Link
-                className="grid gap-3 border-b border-border px-4 py-3 transition hover:bg-background/70 last:border-b-0 md:grid-cols-[minmax(0,1fr)_170px_110px_90px_100px_100px] md:gap-4"
-                href={
-                  buildTradeDetailHref({
-                    returnLabel: `Back to ${collection.name}`,
-                    returnTo: `/collections/${collection.id}`,
-                    tradeId: trade.id
-                  }) as Route
-                }
-                key={trade.id}
-              >
-                <div>
-                  <p className="text-sm font-semibold">{trade.symbol}</p>
-                  <p className="mt-1 text-xs text-muted">
-                    {labelize(trade.marketType)}
-                    {trade.side ? ` - ${trade.side.toLowerCase()}` : ""}
-                  </p>
-                  {trade.journal?.strategy || trade.journal?.grade ? (
-                    <p className="mt-1 text-xs text-muted">
-                      {trade.journal.strategy ?? "No strategy"} -{" "}
-                      {trade.journal.grade ?? "No grade"}
-                    </p>
-                  ) : null}
-                  {trade.journal?.mistakeTags.length ? (
-                    <p className="mt-1 text-xs text-muted">
-                      {trade.journal.mistakeTags
-                        .map((tag) => tag.mistakeTag.name)
-                        .join(", ")}
-                    </p>
-                  ) : null}
-                </div>
-                <p className="break-all font-mono text-xs text-muted">
-                  {formatTradeNo(trade)}
-                </p>
-                <p className="font-mono text-sm text-muted">
-                  {formatMarginLeverage(trade.rawSummary)}
-                </p>
-                <p className="text-sm text-muted">{trade.status.toLowerCase()}</p>
-                <p className={pnlClassName(trade.grossPnl)}>
-                  {formatDecimal2(trade.grossPnl)}
-                </p>
-                <p className={pnlClassName(trade.netPnl, true)}>
-                  {formatDecimal2(trade.netPnl)}
-                </p>
-              </Link>
-            ))}
-          </section>
-        )}
       </div>
     </>
   );
@@ -338,9 +338,9 @@ function StatCard({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
+    <div className="min-w-0 rounded-lg border border-border bg-surface p-2.5 sm:rounded-xl sm:p-4">
       <p className="text-xs font-medium text-muted">{label}</p>
-      <p className={`mt-2 font-mono text-lg font-semibold ${pnlTone(tone)}`}>
+      <p className={`mt-1 break-words font-mono text-sm font-semibold sm:mt-2 sm:text-lg ${pnlTone(tone)}`}>
         {value}
       </p>
     </div>

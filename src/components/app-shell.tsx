@@ -40,7 +40,7 @@ export function AppShell({
             {user.email ?? "Synced trade review"}
           </p>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-4">
           <PinnedCollectionNav collections={collectionNavItems} />
           <nav aria-label="Primary" className="grid gap-1">
             {navigation.map((item) => (

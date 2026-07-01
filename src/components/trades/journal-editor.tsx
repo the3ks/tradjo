@@ -55,7 +55,7 @@ export function JournalEditor({
     >
       <input name="tradeId" type="hidden" value={tradeId} />
 
-      <div className="grid min-w-0 gap-4 md:grid-cols-2">
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4">
         <SuggestionField
           category="strategy"
           defaultValue={journal?.strategy}
