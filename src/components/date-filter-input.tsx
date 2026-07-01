@@ -3,17 +3,21 @@
 import { CalendarBlank } from "@phosphor-icons/react";
 import { useRef } from "react";
 
+import { cn } from "@/lib/utils";
+
 type DateInputElement = HTMLInputElement & {
   showPicker?: () => void;
 };
 
 type DateFilterInputProps = {
+  className?: string;
   defaultValue: string;
   label: string;
   name: string;
 };
 
 export function DateFilterInput({
+  className,
   defaultValue,
   label,
   name
@@ -37,11 +41,11 @@ export function DateFilterInput({
   }
 
   return (
-    <label className="grid gap-1 text-xs font-medium text-muted">
+    <label className={cn("grid gap-1 text-xs font-medium text-muted", className)}>
       {label}
-      <span className="relative block">
+      <span className="relative block min-w-0">
         <input
-          className="min-h-10 w-full rounded-lg border border-border bg-background px-3 pr-10 text-sm text-foreground"
+          className="min-h-10 min-w-0 w-full rounded-lg border border-border bg-background px-3 pr-10 text-sm text-foreground"
           defaultValue={defaultValue}
           name={name}
           onClick={openPicker}

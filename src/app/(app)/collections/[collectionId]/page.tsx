@@ -6,6 +6,7 @@ import { runCollectionSyncAction } from "@/app/(app)/sync/actions";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { ScreenshotImporter } from "@/components/trades/screenshot-importer";
+import { UploadScreenshotJumpLink } from "@/components/upload-screenshot-jump-link";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 
@@ -120,6 +121,7 @@ export default async function CollectionDetailPage({
   return (
     <>
       <PageHeader
+        action={<UploadScreenshotJumpLink />}
         title={collection.name}
         description={
           collection.description ??
@@ -140,7 +142,7 @@ export default async function CollectionDetailPage({
         </div>
 
         <details className="overflow-hidden rounded-xl border border-border bg-surface">
-          <summary className="cursor-pointer px-5 py-4 text-base font-semibold transition hover:bg-background/70">
+          <summary className="cursor-pointer px-5 py-4 text-lg font-semibold transition hover:bg-background/70">
             Trade dashboard
           </summary>
           <div className="grid grid-cols-3 gap-2 border-t border-border p-4 sm:gap-3 sm:p-5 xl:grid-cols-4">
@@ -199,10 +201,17 @@ export default async function CollectionDetailPage({
               >
                 <div>
                   <p className="text-sm font-semibold">{trade.symbol}</p>
-                  <p className="mt-1 text-xs text-muted">
-                    {labelize(trade.marketType)}
-                    {trade.side ? ` - ${trade.side.toLowerCase()}` : ""}
-                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
+                    <span>{labelize(trade.marketType)}</span>
+                    {trade.side ? (
+                      <>
+                        <span aria-hidden="true">-</span>
+                        <span className={sideBadgeClassName(trade.side)}>
+                          {labelize(trade.side)}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
                   {trade.journal?.strategy || trade.journal?.grade ? (
                     <p className="mt-1 text-xs text-muted">
                       {trade.journal.strategy ?? "No strategy"} -{" "}
@@ -309,11 +318,13 @@ export default async function CollectionDetailPage({
           </div>
         </details>
 
-        <ScreenshotImporter
-          collectionId={collection.id}
-          collectionName={collection.name}
-          hasAiExtractionKey={aiCredentials.length > 0}
-        />
+        <div id="upload-screenshot" className="scroll-mt-24">
+          <ScreenshotImporter
+            collectionId={collection.id}
+            collectionName={collection.name}
+            hasAiExtractionKey={aiCredentials.length > 0}
+          />
+        </div>
       </div>
     </>
   );
@@ -339,8 +350,8 @@ function StatCard({
 }) {
   return (
     <div className="min-w-0 rounded-lg border border-border bg-surface p-2.5 sm:rounded-xl sm:p-4">
-      <p className="text-xs font-medium text-muted">{label}</p>
-      <p className={`mt-1 break-words font-mono text-sm font-semibold sm:mt-2 sm:text-lg ${pnlTone(tone)}`}>
+      <p className="text-sm font-medium text-muted">{label}</p>
+      <p className={`mt-1 break-words font-mono text-base font-semibold sm:mt-2 sm:text-xl ${pnlTone(tone)}`}>
         {value}
       </p>
     </div>
@@ -551,6 +562,22 @@ function labelize(value: string) {
     .split("_")
     .map((part) => part[0].toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function sideBadgeClassName(side: string) {
+  const normalizedSide = side.toLowerCase();
+  const base =
+    "inline-flex min-h-5 items-center rounded-full border px-2 text-[11px] font-semibold leading-none";
+
+  if (normalizedSide === "long") {
+    return `${base} border-profit/30 bg-profit/10 text-profit`;
+  }
+
+  if (normalizedSide === "short") {
+    return `${base} border-loss/30 bg-loss/10 text-loss`;
+  }
+
+  return `${base} border-border bg-background text-muted`;
 }
 
 function buildTradeDetailHref({
