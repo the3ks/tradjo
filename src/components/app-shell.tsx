@@ -14,12 +14,19 @@ const navigation = [
   { href: "/dashboard", label: "Dashboard", iconName: "dashboard" },
   { href: "/collections", label: "Collections", iconName: "collections" },
   { href: "/trades", label: "Trades", iconName: "trades" },
+  { href: "/portfolio", label: "Portfolio", iconName: "portfolio" },
   { href: "/sync", label: "Sync", iconName: "sync" },
   { href: "/settings", label: "Settings", iconName: "settings" }
 ] satisfies Array<{
   href: Route;
   label: string;
-  iconName: "dashboard" | "collections" | "trades" | "sync" | "settings";
+  iconName:
+    | "dashboard"
+    | "collections"
+    | "portfolio"
+    | "trades"
+    | "sync"
+    | "settings";
 }>;
 
 export function AppShell({
@@ -68,7 +75,7 @@ export function AppShell({
 
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface px-2 py-2 lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-border bg-surface px-2 py-2 lg:hidden"
       >
         {navigation.map((item) => (
           <NavLink key={item.href} {...item} compact />

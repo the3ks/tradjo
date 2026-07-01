@@ -9,7 +9,8 @@ import {
   Folders,
   GearSix,
   ListChecks,
-  PlugsConnected
+  PlugsConnected,
+  Wallet
 } from "@phosphor-icons/react";
 
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 const icons = {
   dashboard: ChartLineUp,
   collections: Folders,
+  portfolio: Wallet,
   trades: ListChecks,
   sync: PlugsConnected,
   settings: GearSix
@@ -50,7 +52,7 @@ export function NavLink({ href, label, iconName, compact }: NavLinkProps) {
         size={compact ? 20 : 18}
         weight={isActive ? "fill" : "regular"}
       />
-      <span>{label}</span>
+      <span className="max-w-full truncate">{label}</span>
     </Link>
   );
 }

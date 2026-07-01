@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
@@ -78,32 +78,60 @@ enum TradeStatus {
   ARCHIVED
 }
 
+enum AssetClass {
+  CASH
+  CRYPTO
+  STOCK
+  FOREX
+  COMMODITY
+}
+
+enum PositionType {
+  BALANCE
+  SPOT
+  FUTURES
+}
+
+enum LedgerAction {
+  DEPOSIT
+  WITHDRAWAL
+  BUY
+  SELL
+  FEE
+  FUNDING
+  DIVIDEND
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
 model User {
-  id                String               @id @default(cuid())
-  name              String?
-  email             String?              @unique
-  emailVerified     DateTime?
-  image             String?
-  passwordHash      String?
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  accounts          Account[]
-  sessions          Session[]
-  profile           UserProfile?
-  collections       Collection[]
+  id                  String                 @id @default(cuid())
+  name                String?
+  email               String?                @unique
+  emailVerified       DateTime?
+  image               String?
+  passwordHash        String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  accounts            Account[]
+  sessions            Session[]
+  profile             UserProfile?
+  collections         Collection[]
   exchangeConnections ExchangeConnection[]
-  aiCredentials     UserAiCredential[]
-  syncSources       CollectionSyncSource[]
-  rawOrders         RawOrder[]
-  rawFills          RawFill[]
-  rawPositions      RawPosition[]
-  rawIncomes        RawIncome[]
-  trades            Trade[]
-  tradeJournals     TradeJournal[]
-  mistakeTags       TradeMistakeTag[]
-  tradeScreenshots  TradeScreenshot[]
-  suggestionValues  UserSuggestionValue[]
-  syncLogs          ExchangeSyncLog[]
+  aiCredentials       UserAiCredential[]
+  syncSources         CollectionSyncSource[]
+  rawOrders           RawOrder[]
+  rawFills            RawFill[]
+  rawPositions        RawPosition[]
+  rawIncomes          RawIncome[]
+  trades              Trade[]
+  tradeJournals       TradeJournal[]
+  mistakeTags         TradeMistakeTag[]
+  tradeScreenshots    TradeScreenshot[]
+  suggestionValues    UserSuggestionValue[]
+  syncLogs            ExchangeSyncLog[]
+  portfolioPositions  PortfolioPosition[]
+  portfolioLedgers    PortfolioLedger[]
 }
 
 model UserAiCredential {
@@ -171,25 +199,25 @@ model UserProfile {
 }
 
 model ExchangeConnection {
-  id              String       @id @default(cuid())
-  userId          String
-  exchangeName    ExchangeName
-  accountName     String
-  apiKeyEncrypted String
+  id                 String       @id @default(cuid())
+  userId             String
+  exchangeName       ExchangeName
+  accountName        String
+  apiKeyEncrypted    String
   apiSecretEncrypted String
-  isActive        Boolean      @default(true)
-  deletedAt       DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  isActive           Boolean      @default(true)
+  deletedAt          DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
-  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  syncSources CollectionSyncSource[]
-  rawOrders   RawOrder[]
-  rawFills    RawFill[]
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncSources  CollectionSyncSource[]
+  rawOrders    RawOrder[]
+  rawFills     RawFill[]
   rawPositions RawPosition[]
-  rawIncomes  RawIncome[]
-  trades      Trade[]
-  syncLogs    ExchangeSyncLog[]
+  rawIncomes   RawIncome[]
+  trades       Trade[]
+  syncLogs     ExchangeSyncLog[]
 
   @@index([userId])
 }
@@ -219,31 +247,31 @@ model Collection {
 }
 
 model CollectionSyncSource {
-  id                     String                 @id @default(cuid())
-  userId                 String
-  collectionId           String
-  exchangeConnectionId   String
-  marketType             MarketType
-  symbolFilterMode       SymbolFilterMode       @default(ALL)
-  initialSyncMode        InitialSyncMode        @default(LAST_7_DAYS)
-  initialSyncStartTime   DateTime?
-  initialSyncEndTime     DateTime?
-  initialSyncCompleted   Boolean                @default(false)
-  lastEventTime          DateTime?
-  lastOrderCursor        String?
-  lastTradeCursor        String?
-  cursorInitializedFrom  CursorInitializedFrom?
-  isActive               Boolean                @default(true)
-  isDefault              Boolean                @default(true)
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
+  id                    String                 @id @default(cuid())
+  userId                String
+  collectionId          String
+  exchangeConnectionId  String
+  marketType            MarketType
+  symbolFilterMode      SymbolFilterMode       @default(ALL)
+  initialSyncMode       InitialSyncMode        @default(LAST_7_DAYS)
+  initialSyncStartTime  DateTime?
+  initialSyncEndTime    DateTime?
+  initialSyncCompleted  Boolean                @default(false)
+  lastEventTime         DateTime?
+  lastOrderCursor       String?
+  lastTradeCursor       String?
+  cursorInitializedFrom CursorInitializedFrom?
+  isActive              Boolean                @default(true)
+  isDefault             Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
-  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collection           Collection             @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  exchangeConnection   ExchangeConnection     @relation(fields: [exchangeConnectionId], references: [id])
-  symbols              CollectionSyncSourceSymbol[]
-  trades               Trade[]
-  syncLogs             ExchangeSyncLog[]
+  user               User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection         Collection                   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  exchangeConnection ExchangeConnection           @relation(fields: [exchangeConnectionId], references: [id])
+  symbols            CollectionSyncSourceSymbol[]
+  trades             Trade[]
+  syncLogs           ExchangeSyncLog[]
 
   @@index([userId])
   @@index([collectionId])
@@ -292,7 +320,7 @@ model RawOrder {
 }
 
 model RawFill {
-  id                   String   @id @default(cuid())
+  id                   String     @id @default(cuid())
   userId               String
   exchangeConnectionId String
   exchangeFillId       String
@@ -300,15 +328,15 @@ model RawFill {
   symbol               String
   marketType           MarketType
   side                 String?
-  price                Decimal? @db.Decimal(36, 18)
-  quantity             Decimal? @db.Decimal(36, 18)
-  fee                  Decimal? @db.Decimal(36, 18)
+  price                Decimal?   @db.Decimal(36, 18)
+  quantity             Decimal?   @db.Decimal(36, 18)
+  fee                  Decimal?   @db.Decimal(36, 18)
   feeCurrency          String?
   executedAt           DateTime?
   rawPayload           Json
-  lastSeenAt           DateTime @default(now())
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  lastSeenAt           DateTime   @default(now())
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
 
   user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   exchangeConnection ExchangeConnection @relation(fields: [exchangeConnectionId], references: [id])
@@ -319,24 +347,24 @@ model RawFill {
 }
 
 model RawPosition {
-  id                   String   @id @default(cuid())
+  id                   String     @id @default(cuid())
   userId               String
   exchangeConnectionId String
   exchangePositionId   String
   symbol               String
   marketType           MarketType
   side                 String?
-  quantity             Decimal? @db.Decimal(36, 18)
-  entryPrice           Decimal? @db.Decimal(36, 18)
-  markPrice            Decimal? @db.Decimal(36, 18)
-  unrealizedPnl        Decimal? @db.Decimal(36, 18)
-  realizedPnl          Decimal? @db.Decimal(36, 18)
+  quantity             Decimal?   @db.Decimal(36, 18)
+  entryPrice           Decimal?   @db.Decimal(36, 18)
+  markPrice            Decimal?   @db.Decimal(36, 18)
+  unrealizedPnl        Decimal?   @db.Decimal(36, 18)
+  realizedPnl          Decimal?   @db.Decimal(36, 18)
   openedAt             DateTime?
   updatedTime          DateTime?
   rawPayload           Json
-  lastSeenAt           DateTime @default(now())
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  lastSeenAt           DateTime   @default(now())
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
 
   user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   exchangeConnection ExchangeConnection @relation(fields: [exchangeConnectionId], references: [id])
@@ -372,7 +400,7 @@ model RawIncome {
 }
 
 model Trade {
-  id                     String       @id @default(cuid())
+  id                     String      @id @default(cuid())
   userId                 String
   collectionId           String
   collectionSyncSourceId String?
@@ -383,27 +411,27 @@ model Trade {
   symbol                 String
   marketType             MarketType
   side                   String?
-  status                 TradeStatus  @default(OPEN)
-  quantity               Decimal?     @db.Decimal(36, 18)
-  entryPrice             Decimal?     @db.Decimal(36, 18)
-  exitPrice              Decimal?     @db.Decimal(36, 18)
-  grossPnl               Decimal?     @db.Decimal(36, 18)
-  tradingFee             Decimal?     @db.Decimal(36, 18)
-  fundingFee             Decimal?     @db.Decimal(36, 18)
-  netPnl                 Decimal?     @db.Decimal(36, 18)
+  status                 TradeStatus @default(OPEN)
+  quantity               Decimal?    @db.Decimal(36, 18)
+  entryPrice             Decimal?    @db.Decimal(36, 18)
+  exitPrice              Decimal?    @db.Decimal(36, 18)
+  grossPnl               Decimal?    @db.Decimal(36, 18)
+  tradingFee             Decimal?    @db.Decimal(36, 18)
+  fundingFee             Decimal?    @db.Decimal(36, 18)
+  netPnl                 Decimal?    @db.Decimal(36, 18)
   openedAt               DateTime?
   closedAt               DateTime?
   settledAt              DateTime?
   rawSummary             Json
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
 
-  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collection         Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection           Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   collectionSyncSource CollectionSyncSource? @relation(fields: [collectionSyncSourceId], references: [id], onDelete: SetNull)
-  exchangeConnection ExchangeConnection    @relation(fields: [exchangeConnectionId], references: [id])
-  journal            TradeJournal?
-  screenshots        TradeScreenshot[]
+  exchangeConnection   ExchangeConnection    @relation(fields: [exchangeConnectionId], references: [id])
+  journal              TradeJournal?
+  screenshots          TradeScreenshot[]
 
   @@unique([collectionId, externalTradeId])
   @@index([userId])
@@ -414,19 +442,19 @@ model Trade {
 }
 
 model TradeJournal {
-  id        String   @id @default(cuid())
-  userId    String
-  tradeId   String   @unique
-  strategy  String?  @db.VarChar(120)
-  setup     String?  @db.VarChar(160)
-  entryTrigger String? @db.VarChar(240)
-  exitReason   String? @db.VarChar(240)
-  notes     String?  @db.Text
-  emotion   String?  @db.VarChar(80)
-  review    String?  @db.Text
-  grade     String?  @db.VarChar(24)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  userId       String
+  tradeId      String   @unique
+  strategy     String?  @db.VarChar(120)
+  setup        String?  @db.VarChar(160)
+  entryTrigger String?  @db.VarChar(240)
+  exitReason   String?  @db.VarChar(240)
+  notes        String?  @db.Text
+  emotion      String?  @db.VarChar(80)
+  review       String?  @db.Text
+  grade        String?  @db.VarChar(24)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   user        User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   trade       Trade                    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
@@ -520,12 +548,60 @@ model ExchangeSyncLog {
   errorMessage           String?    @db.Text
   createdAt              DateTime   @default(now())
 
-  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   collectionSyncSource CollectionSyncSource? @relation(fields: [collectionSyncSourceId], references: [id], onDelete: SetNull)
-  exchangeConnection ExchangeConnection    @relation(fields: [exchangeConnectionId], references: [id])
+  exchangeConnection   ExchangeConnection    @relation(fields: [exchangeConnectionId], references: [id])
 
   @@index([userId])
   @@index([collectionSyncSourceId])
   @@index([exchangeConnectionId])
   @@index([status])
+}
+
+model PortfolioPosition {
+  id              String       @id @default(cuid())
+  userId          String
+  symbol          String
+  assetClass      AssetClass
+  positionType    PositionType
+  exchange        String?
+  currentQuantity Decimal      @db.Decimal(36, 18)
+  averageCost     Decimal      @db.Decimal(36, 18)
+  realizedPnl     Decimal      @default(0) @db.Decimal(36, 18)
+  currency        String
+  updatedAt       DateTime     @updatedAt
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledgers PortfolioLedger[]
+
+  @@unique([userId, symbol, assetClass, positionType, exchange])
+  @@index([userId])
+  @@index([assetClass])
+  @@index([positionType])
+  @@index([exchange])
+}
+
+model PortfolioLedger {
+  id              String       @id @default(cuid())
+  userId          String
+  positionId      String
+  action          LedgerAction
+  quantityChange  Decimal      @db.Decimal(36, 18)
+  price           Decimal      @db.Decimal(36, 18)
+  feeAmount       Decimal      @default(0) @db.Decimal(36, 18)
+  currency        String
+  linkedLedgerId  String?      @unique
+  transactionDate DateTime
+  source          String
+  rawPayload      Json?
+  createdAt       DateTime     @default(now())
+
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position       PortfolioPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  linkedLedger   PortfolioLedger?  @relation("PortfolioLedgerLink", fields: [linkedLedgerId], references: [id])
+  linkedByLedger PortfolioLedger?  @relation("PortfolioLedgerLink")
+
+  @@index([userId])
+  @@index([positionId])
+  @@index([transactionDate])
 }
