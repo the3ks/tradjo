@@ -58,12 +58,20 @@ export default async function PortfolioPage() {
         title="Portfolio"
         description="Track strategic holdings, cash balances, allocation, and exposure separately from tactical trades."
         action={
-          <Link
-            className="inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-medium transition hover:bg-surface-elevated active:translate-y-px"
-            href="/portfolio/ledger"
-          >
-            View ledger
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className="inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-medium transition hover:bg-surface-elevated active:translate-y-px"
+              href="/portfolio/import"
+            >
+              Import
+            </Link>
+            <Link
+              className="inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-medium transition hover:bg-surface-elevated active:translate-y-px"
+              href="/portfolio/ledger"
+            >
+              View ledger
+            </Link>
+          </div>
         }
       />
       <div className="grid gap-6 px-4 py-6 sm:px-6 lg:px-8">

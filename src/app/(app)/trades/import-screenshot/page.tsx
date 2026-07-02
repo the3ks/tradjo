@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ImportTargetRouter } from "@/components/import-target-router";
 import { PageHeader } from "@/components/page-header";
 import { ScreenshotImporter } from "@/components/trades/screenshot-importer";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +25,7 @@ export default async function ImportScreenshotPage() {
         description="Extract BingX Standard Futures trades from screenshots using Gemini, with optional OpenAI fallback."
       />
       <div className="grid gap-4 px-4 py-6 sm:px-6 lg:px-8">
+        <ImportTargetRouter active="journal" />
         <div className="flex flex-wrap gap-3">
           <Link className="text-sm font-semibold text-accent" href="/trades">
             Back to trades

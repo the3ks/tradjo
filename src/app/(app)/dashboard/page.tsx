@@ -27,9 +27,18 @@ type DashboardTrade = {
   };
 };
 
+type PortfolioPositionRow = {
+  id: string;
+  symbol: string;
+  assetClass: string;
+  currentQuantity: DecimalValue;
+  averageCost: DecimalValue;
+  realizedPnl: DecimalValue;
+};
+
 export default async function DashboardPage() {
   const userId = await requireUserId();
-  const [trades, collections] = await Promise.all([
+  const [trades, collections, portfolioPositions] = await Promise.all([
     prisma.trade.findMany({
       where: { userId },
       select: {
@@ -61,10 +70,23 @@ export default async function DashboardPage() {
         name: true
       },
       orderBy: { name: "asc" }
+    }),
+    prisma.portfolioPosition.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        symbol: true,
+        assetClass: true,
+        currentQuantity: true,
+        averageCost: true,
+        realizedPnl: true
+      },
+      orderBy: [{ assetClass: "asc" }, { symbol: "asc" }]
     })
   ]);
   const stats = summarizeTrades(trades);
   const collectionRows = summarizeByCollection(trades, collections);
+  const portfolioStats = summarizePortfolio(portfolioPositions);
   const recentTrades = trades.slice(0, 8);
 
   return (
@@ -74,6 +96,20 @@ export default async function DashboardPage() {
         description="Review performance across all trading collections."
       />
       <div className="grid gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <section className="grid gap-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold">Trading Journal</h2>
+              <p className="mt-1 text-sm text-muted">
+                Tactical trade performance from synced and imported journal trades.
+              </p>
+            </div>
+            <Link className="text-sm font-semibold text-accent" href="/trades">
+              Open trades
+            </Link>
+          </div>
+        </section>
+
         <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <StatCard label="Net P&L" tone={stats.netPnl} value={formatNumber(stats.netPnl)} />
           <StatCard label="Win rate" value={`${stats.winRate.toFixed(1)}%`} />
@@ -86,6 +122,71 @@ export default async function DashboardPage() {
           <StatCard label="Open trades" value={stats.openCount.toString()} />
           <StatCard label="Average net" tone={stats.averageNet} value={formatNumber(stats.averageNet)} />
           <StatCard label="Total fees" value={formatNumber(stats.totalFees)} />
+        </section>
+
+        <section className="grid gap-3 border-t border-border pt-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold">Portfolio</h2>
+              <p className="mt-1 text-sm text-muted">
+                Strategic holdings and cash balances from the portfolio ledger.
+              </p>
+            </div>
+            <Link className="text-sm font-semibold text-accent" href="/portfolio">
+              Open portfolio
+            </Link>
+          </div>
+          {portfolioPositions.length === 0 ? (
+            <EmptyState
+              title="No portfolio data yet"
+              description="Add cash, create asset ledger entries, or import portfolio CSV rows to populate portfolio metrics."
+            />
+          ) : (
+            <>
+              <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <StatCard
+                  label="Portfolio equity"
+                  value={formatNumber(portfolioStats.totalCost)}
+                />
+                <StatCard
+                  label="Cash allocation"
+                  value={formatPercent(portfolioStats.cashAllocation)}
+                />
+                <StatCard
+                  label="Holdings"
+                  value={portfolioPositions.length.toString()}
+                />
+                <StatCard
+                  label="Portfolio realized"
+                  tone={portfolioStats.realizedPnl}
+                  value={formatNumber(portfolioStats.realizedPnl)}
+                />
+              </section>
+              <section className="overflow-hidden rounded-xl border border-border bg-surface">
+                <div className="border-b border-border px-4 py-3">
+                  <h3 className="text-base font-semibold">Allocation snapshot</h3>
+                </div>
+                <div className="grid gap-3 p-4 md:grid-cols-2">
+                  {portfolioStats.allocationRows.map((row) => (
+                    <div className="grid gap-2" key={row.assetClass}>
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="font-medium">{formatLabel(row.assetClass)}</span>
+                        <span className="font-mono text-muted">
+                          {formatPercent(row.percent)}
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-background">
+                        <div
+                          className="h-full rounded-full bg-accent"
+                          style={{ width: `${Math.round(row.percent * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
         </section>
 
         {trades.length === 0 ? (
@@ -175,6 +276,45 @@ function StatCard({
   );
 }
 
+function summarizePortfolio(positions: PortfolioPositionRow[]) {
+  const totalCost = positions.reduce(
+    (total, position) => total + portfolioPositionCost(position),
+    0
+  );
+  const cashCost = positions
+    .filter((position) => position.assetClass === "CASH")
+    .reduce((total, position) => total + portfolioPositionCost(position), 0);
+  const realizedPnl = positions.reduce(
+    (total, position) => total + position.realizedPnl.toNumber(),
+    0
+  );
+  const allocationTotals = new Map<string, number>();
+
+  for (const position of positions) {
+    allocationTotals.set(
+      position.assetClass,
+      (allocationTotals.get(position.assetClass) ?? 0) +
+        portfolioPositionCost(position)
+    );
+  }
+
+  return {
+    allocationRows: Array.from(allocationTotals.entries()).map(
+      ([assetClass, cost]) => ({
+        assetClass,
+        percent: totalCost > 0 ? cost / totalCost : 0
+      })
+    ),
+    cashAllocation: totalCost > 0 ? cashCost / totalCost : 0,
+    realizedPnl,
+    totalCost
+  };
+}
+
+function portfolioPositionCost(position: PortfolioPositionRow) {
+  return position.currentQuantity.toNumber() * position.averageCost.toNumber();
+}
+
 function summarizeTrades(trades: DashboardTrade[]) {
   const closedTrades = trades.filter((trade) => trade.status !== "OPEN");
   const wins = closedTrades.filter((trade) => decimalNumber(trade.netPnl) > 0);
@@ -260,6 +400,20 @@ function formatNumber(value: number) {
     maximumFractionDigits: 8,
     minimumFractionDigits: 0
   }).format(value);
+}
+
+function formatPercent(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 1,
+    style: "percent"
+  }).format(value);
+}
+
+function formatLabel(value: string) {
+  return value
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/^\w/, (character) => character.toUpperCase());
 }
 
 function formatProfitFactor(value: number) {

@@ -57,12 +57,20 @@ export default async function PortfolioLedgerPage() {
         title="Portfolio ledger"
         description="Review immutable portfolio transactions behind current holdings and balances."
         action={
-          <Link
-            className="inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-medium transition hover:bg-surface-elevated active:translate-y-px"
-            href="/portfolio"
-          >
-            Back to portfolio
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className="inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-medium transition hover:bg-surface-elevated active:translate-y-px"
+              href="/portfolio/import"
+            >
+              Import
+            </Link>
+            <Link
+              className="inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-medium transition hover:bg-surface-elevated active:translate-y-px"
+              href="/portfolio"
+            >
+              Back to portfolio
+            </Link>
+          </div>
         }
       />
       <div className="px-4 py-6 sm:px-6 lg:px-8">
